@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import "./App.css";
 
@@ -93,10 +93,10 @@ function App() {
 
   useEffect(() => {
     const updateResults = async () => {
-      if (searchQuery.trim() === "") {
+        if (searchQuery.trim() === "") {
         setFilteredResults([]);
         // Resize window to show only search box
-        await getCurrentWindow().setSize({ width: 700, height: 100 });
+        await getCurrentWindow().setSize(new LogicalSize(700, 100));
       } else {
         const filtered = mockSearchData.filter(
           (item) =>
@@ -108,7 +108,7 @@ function App() {
         // Dynamically resize window based on results
         const resultHeight = Math.min(filtered.length * 64, 400);
         const totalHeight = 100 + (filtered.length > 0 ? resultHeight + 16 : 0);
-        await getCurrentWindow().setSize({ width: 700, height: totalHeight });
+        await getCurrentWindow().setSize(new LogicalSize(700, totalHeight));
       }
       setSelectedIndex(0);
     };
@@ -138,7 +138,6 @@ function App() {
   return (
     <div className="spotlight-container">
       <div className="liquid-glass-box">
-        <div className="search-icon">🔍</div>
         <input
           ref={inputRef}
           type="text"
