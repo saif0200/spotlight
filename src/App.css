@@ -30,8 +30,32 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
   padding: 20px;
   background: transparent;
+}
+
+.content-area {
+  width: 660px;
+  height: 0;
+  background: transparent;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.45s cubic-bezier(0.25, 0.1, 0.25, 1);
+  overflow: hidden;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+.content-area.expanded {
+  height: 400px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  margin-bottom: 8px;
+  opacity: 1;
+  transform: scale(1);
+  padding: 12px;
 }
 
 /* Liquid Glass Effect */
@@ -51,7 +75,7 @@ body {
   border-radius: 16px;
 
   /* Smooth transitions */
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.45s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .liquid-glass-box:hover {
@@ -165,6 +189,11 @@ body {
 
 /* Dark Mode */
 @media (prefers-color-scheme: dark) {
+  .content-area.expanded {
+    background: rgba(30, 30, 35, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
   .liquid-glass-box {
     background: rgba(30, 30, 35, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.12);

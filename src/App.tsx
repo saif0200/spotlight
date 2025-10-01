@@ -3,25 +3,9 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import "./App.css";
 
-interface SearchItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-}
-
-const mockSearchData: SearchItem[] = [
-  { id: "1", title: "Applications", subtitle: "Browse all applications", icon: "📁" },
-  { id: "2", title: "Documents", subtitle: "Your documents folder", icon: "📄" },
-  { id: "3", title: "Downloads", subtitle: "Downloaded files", icon: "⬇️" },
-  { id: "4", title: "Settings", subtitle: "System preferences", icon: "⚙️" },
-  { id: "5", title: "Calculator", subtitle: "Perform calculations", icon: "🔢" },
-];
-
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filteredResults, setFilteredResults] = useState<SearchItem[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isTogglingRef = useRef(false);
 
@@ -48,9 +32,15 @@ function App() {
             console.log("Window visible:", isVisible);
 
             if (isVisible) {
+              // Collapse and reset before hiding
+              setIsExpanded(false);
+              await appWindow.setSize(new LogicalSize(700, 100));
               await appWindow.hide();
               setSearchQuery("");
             } else {
+              // Ensure collapsed state when showing
+              setIsExpanded(false);
+              await appWindow.setSize(new LogicalSize(700, 100));
               await appWindow.show();
               await appWindow.setFocus();
               setSearchQuery("");
@@ -66,23 +56,12 @@ function App() {
 
         console.log("Global shortcut registered successfully!");
 
-        // Listen for Escape key to hide window
-        const unlisten = await appWindow.onFocusChanged(({ payload }) => {
-          if (!payload) {
-            setTimeout(() => appWindow.hide(), 100);
-          }
-        });
-
         // Show window initially for testing
         setTimeout(async () => {
           await appWindow.show();
           await appWindow.setFocus();
           inputRef.current?.focus();
         }, 500);
-
-        return () => {
-          unlisten();
-        };
       } catch (error) {
         console.error("Failed to setup shortcut:", error);
       }
@@ -91,52 +70,25 @@ function App() {
     setupShortcut();
   }, []);
 
-  useEffect(() => {
-    const updateResults = async () => {
-        if (searchQuery.trim() === "") {
-        setFilteredResults([]);
-        // Resize window to show only search box
-        await getCurrentWindow().setSize(new LogicalSize(700, 100));
-      } else {
-        const filtered = mockSearchData.filter(
-          (item) =>
-            item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            item.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-        setFilteredResults(filtered);
-
-        // Dynamically resize window based on results
-        const resultHeight = Math.min(filtered.length * 64, 400);
-        const totalHeight = 100 + (filtered.length > 0 ? resultHeight + 16 : 0);
-        await getCurrentWindow().setSize(new LogicalSize(700, totalHeight));
-      }
-      setSelectedIndex(0);
-    };
-
-    updateResults();
-  }, [searchQuery]);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown") {
+  const handleKeyDown = async (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && searchQuery.trim() !== "") {
       e.preventDefault();
-      setSelectedIndex((prev) =>
-        prev < filteredResults.length - 1 ? prev + 1 : prev
-      );
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-    } else if (e.key === "Enter") {
-      if (filteredResults[selectedIndex]) {
-        console.log("Selected:", filteredResults[selectedIndex]);
+      if (!isExpanded) {
+        setIsExpanded(true);
+        await getCurrentWindow().setSize(new LogicalSize(700, 500));
       }
     } else if (e.key === "Escape") {
+      // Collapse and reset before hiding
+      setIsExpanded(false);
+      await getCurrentWindow().setSize(new LogicalSize(700, 100));
       setSearchQuery("");
-      getCurrentWindow().hide();
+      await getCurrentWindow().hide();
     }
   };
 
   return (
     <div className="spotlight-container">
+      <div className={`content-area ${isExpanded ? 'expanded' : ''}`}></div>
       <div className="liquid-glass-box">
         <input
           ref={inputRef}
