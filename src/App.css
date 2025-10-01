@@ -41,7 +41,6 @@ body {
   background: transparent;
   opacity: 0;
   transform: scale(0.95);
-  transition: all 0.45s cubic-bezier(0.25, 0.1, 0.25, 1);
   overflow: hidden;
   margin-bottom: 0;
   padding: 0;
@@ -74,13 +73,9 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
 
-  /* Smooth transitions */
-  transition: all 0.45s cubic-bezier(0.25, 0.1, 0.25, 1);
+  /* Transitions removed to disable animations */
 }
 
-.liquid-glass-box:hover {
-  background: rgba(255, 255, 255, 0.8);
-}
 
 .search-icon {
   font-size: 22px;
@@ -145,7 +140,7 @@ body {
   gap: 16px;
   border-radius: 10px;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Transitions removed to disable animations */
   user-select: none;
 }
 
@@ -199,9 +194,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
-  .liquid-glass-box:hover {
-    background: rgba(40, 40, 45, 0.9);
-  }
+  /* Hover effect removed for spotlight search */
 
   .search-input {
     color: rgba(255, 255, 255, 0.92);
