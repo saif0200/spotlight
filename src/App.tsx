@@ -149,23 +149,6 @@ function App() {
           autoFocus
         />
       </div>
-
-      {filteredResults.length > 0 && (
-        <div className="results-container">
-          {filteredResults.map((item, index) => (
-            <div
-              key={item.id}
-              className={`result-item ${index === selectedIndex ? "selected" : ""}`}
-            >
-              <span className="result-icon">{item.icon}</span>
-              <div className="result-content">
-                <div className="result-title">{item.title}</div>
-                <div className="result-subtitle">{item.subtitle}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
