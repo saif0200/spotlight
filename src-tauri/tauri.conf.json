@@ -10,11 +10,21 @@
     "frontendDist": "../dist"
   },
   "app": {
+    "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "spotlight",
-        "width": 800,
-        "height": 600
+        "title": "Spotlight Search",
+        "width": 700,
+        "height": 80,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": true,
+        "focus": true,
+        "fullscreen": false
       }
     ],
     "security": {

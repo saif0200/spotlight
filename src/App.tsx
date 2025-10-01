@@ -1,50 +1,173 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { useState, useEffect, useRef } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { register } from "@tauri-apps/plugin-global-shortcut";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+interface SearchItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+}
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+const mockSearchData: SearchItem[] = [
+  { id: "1", title: "Applications", subtitle: "Browse all applications", icon: "📁" },
+  { id: "2", title: "Documents", subtitle: "Your documents folder", icon: "📄" },
+  { id: "3", title: "Downloads", subtitle: "Downloaded files", icon: "⬇️" },
+  { id: "4", title: "Settings", subtitle: "System preferences", icon: "⚙️" },
+  { id: "5", title: "Calculator", subtitle: "Perform calculations", icon: "🔢" },
+];
+
+function App() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredResults, setFilteredResults] = useState<SearchItem[]>([]);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isTogglingRef = useRef(false);
+
+  useEffect(() => {
+    const setupShortcut = async () => {
+      try {
+        const appWindow = getCurrentWindow();
+
+        console.log("Setting up global shortcut...");
+
+        // Register Cmd+K (macOS) / Ctrl+K (others)
+        await register("CommandOrControl+K", async () => {
+          // Prevent multiple rapid triggers
+          if (isTogglingRef.current) {
+            console.log("Already toggling, ignoring...");
+            return;
+          }
+
+          isTogglingRef.current = true;
+          console.log("Shortcut triggered!");
+
+          try {
+            const isVisible = await appWindow.isVisible();
+            console.log("Window visible:", isVisible);
+
+            if (isVisible) {
+              await appWindow.hide();
+              setSearchQuery("");
+            } else {
+              await appWindow.show();
+              await appWindow.setFocus();
+              setSearchQuery("");
+              setTimeout(() => inputRef.current?.focus(), 100);
+            }
+          } finally {
+            // Reset the flag after a short delay
+            setTimeout(() => {
+              isTogglingRef.current = false;
+            }, 300);
+          }
+        });
+
+        console.log("Global shortcut registered successfully!");
+
+        // Listen for Escape key to hide window
+        const unlisten = await appWindow.onFocusChanged(({ payload }) => {
+          if (!payload) {
+            setTimeout(() => appWindow.hide(), 100);
+          }
+        });
+
+        // Show window initially for testing
+        setTimeout(async () => {
+          await appWindow.show();
+          await appWindow.setFocus();
+          inputRef.current?.focus();
+        }, 500);
+
+        return () => {
+          unlisten();
+        };
+      } catch (error) {
+        console.error("Failed to setup shortcut:", error);
+      }
+    };
+
+    setupShortcut();
+  }, []);
+
+  useEffect(() => {
+    const updateResults = async () => {
+      if (searchQuery.trim() === "") {
+        setFilteredResults([]);
+        // Resize window to show only search box
+        await getCurrentWindow().setSize({ width: 700, height: 100 });
+      } else {
+        const filtered = mockSearchData.filter(
+          (item) =>
+            item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            item.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        setFilteredResults(filtered);
+
+        // Dynamically resize window based on results
+        const resultHeight = Math.min(filtered.length * 64, 400);
+        const totalHeight = 100 + (filtered.length > 0 ? resultHeight + 16 : 0);
+        await getCurrentWindow().setSize({ width: 700, height: totalHeight });
+      }
+      setSelectedIndex(0);
+    };
+
+    updateResults();
+  }, [searchQuery]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex((prev) =>
+        prev < filteredResults.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      if (filteredResults[selectedIndex]) {
+        console.log("Selected:", filteredResults[selectedIndex]);
+      }
+    } else if (e.key === "Escape") {
+      setSearchQuery("");
+      getCurrentWindow().hide();
+    }
+  };
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
+    <div className="spotlight-container">
+      <div className="liquid-glass-box">
+        <div className="search-icon">🔍</div>
         <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
+          ref={inputRef}
+          type="text"
+          className="search-input"
+          placeholder="Spotlight Search"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          autoFocus
         />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      </div>
+
+      {filteredResults.length > 0 && (
+        <div className="results-container">
+          {filteredResults.map((item, index) => (
+            <div
+              key={item.id}
+              className={`result-item ${index === selectedIndex ? "selected" : ""}`}
+            >
+              <span className="result-icon">{item.icon}</span>
+              <div className="result-content">
+                <div className="result-title">{item.title}</div>
+                <div className="result-subtitle">{item.subtitle}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
