@@ -128,7 +128,14 @@ struct InlineData {
 
 #[derive(Serialize, Deserialize)]
 struct GeminiContent {
+    role: String,
     parts: Vec<GeminiPart>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct ChatMessage {
+    role: String,
+    content: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -222,18 +229,36 @@ async fn send_to_gemini(
     api_key: String,
     grounding_enabled: Option<bool>,
     thinking_enabled: Option<bool>,
+    chat_history: Vec<ChatMessage>,
 ) -> Result<String, String> {
-    let mut parts = vec![];
+    // Build conversation history
+    let mut contents: Vec<GeminiContent> = chat_history
+        .iter()
+        .map(|msg| {
+            let role = if msg.role == "assistant" {
+                "model".to_string()
+            } else {
+                msg.role.clone()
+            };
+            GeminiContent {
+                role,
+                parts: vec![GeminiPart {
+                    text: Some(msg.content.clone()),
+                    inline_data: None,
+                }],
+            }
+        })
+        .collect();
 
-    // Add text part
-    parts.push(GeminiPart {
+    // Add current message with optional image
+    let mut current_parts = vec![GeminiPart {
         text: Some(message),
         inline_data: None,
-    });
+    }];
 
     // Add image part if provided
     if let Some(img_data) = image_data {
-        parts.push(GeminiPart {
+        current_parts.push(GeminiPart {
             text: None,
             inline_data: Some(InlineData {
                 mime_type: "image/png".to_string(),
@@ -241,6 +266,11 @@ async fn send_to_gemini(
             }),
         });
     }
+
+    contents.push(GeminiContent {
+        role: "user".to_string(),
+        parts: current_parts,
+    });
 
     let tools = if grounding_enabled.unwrap_or(false) {
         Some(vec![Tool {
@@ -261,7 +291,7 @@ async fn send_to_gemini(
     };
 
     let request = GeminiRequest {
-        contents: vec![GeminiContent { parts }],
+        contents,
         tools,
         generation_config,
     };

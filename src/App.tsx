@@ -165,13 +165,14 @@ function App() {
         imageData = await invoke<string>("capture_screen");
       }
 
-      // Send to Gemini
+      // Send to Gemini with full chat history
       const response = await invoke<string>("send_to_gemini", {
         message: userMessage,
         imageData,
         apiKey,
         groundingEnabled,
         thinkingEnabled,
+        chatHistory,
       });
 
       // Parse response (it now contains both text and sources)
