@@ -202,7 +202,7 @@ function App() {
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && searchQuery.trim() !== "") {
+    if (e.key === "Enter" && searchQuery.trim() !== "" && e.target === inputRef.current) {
       e.preventDefault();
       await sendMessage();
     } else if (e.key === "Escape") {
@@ -221,7 +221,7 @@ function App() {
   };
 
   return (
-    <div className="spotlight-container">
+    <div className="spotlight-container" onKeyDown={handleKeyDown} tabIndex={-1}>
       <div className={`content-area ${isExpanded ? "expanded" : ""}`}>
         <div className="chat-container" ref={chatContainerRef}>
           {chatHistory.map((msg, idx) => (
@@ -302,7 +302,6 @@ function App() {
           placeholder="Ask Gemini..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
           autoFocus
           disabled={isLoading}
         />
