@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
+import { Store } from "@tauri-apps/plugin-store";
 import "./App.css";
 import "katex/dist/katex.min.css";
 import MessageRenderer from "./components/MessageRenderer";
@@ -16,6 +17,57 @@ interface Message {
   content: string;
   sources?: SourceInfo[];
 }
+
+// Tauri command parameter interfaces
+interface SendToGeminiParams extends Record<string, unknown> {
+  message: string;
+  imageData: string | null;
+  apiKey: string;
+  groundingEnabled: boolean;
+  thinkingEnabled: boolean;
+  chatHistory: Message[];
+}
+
+interface GeminiResult {
+  text: string;
+  sources?: SourceInfo[];
+}
+
+const WINDOW_SIZES = {
+  EXPANDED: { width: 700, height: 550 },
+  COLLAPSED: { width: 700, height: 130 },
+} as const;
+
+const TIMEOUTS = {
+  INPUT_FOCUS: 100,
+  TOGGLE_DEBOUNCE: 300,
+} as const;
+
+// Memoized chat message component for performance
+const ChatMessage = memo(({ msg, idx }: { msg: Message; idx: number }) => (
+  <div key={idx} className={`chat-message ${msg.role}`}>
+    <div className="message-content">
+      <MessageRenderer content={msg.content} />
+    </div>
+    {msg.sources && msg.sources.length > 0 && (
+      <div className="message-sources">
+        {msg.sources.map((source, sidx) => (
+          <a
+            key={sidx}
+            href={source.uri}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="source-pill"
+          >
+            {source.title}
+          </a>
+        ))}
+      </div>
+    )}
+  </div>
+));
+
+ChatMessage.displayName = 'ChatMessage';
 
 function App() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,11 +85,15 @@ function App() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<Message[]>([]);
 
-  // Load API key from localStorage only
+  // Load API key from secure store
   useEffect(() => {
-    const storedKey = localStorage.getItem('GEMINI_API_KEY') || "";
-    setApiKey(storedKey);
-    setApiKeyInput(storedKey);
+    const loadApiKey = async () => {
+      const store = await Store.load("settings.json");
+      const storedKey = await store.get<string>('GEMINI_API_KEY') || "";
+      setApiKey(storedKey);
+      setApiKeyInput(storedKey);
+    };
+    loadApiKey();
   }, []);
 
   useEffect(() => {
@@ -70,20 +126,20 @@ function App() {
               const hasHistory = chatHistoryRef.current.length > 0;
               if (hasHistory) {
                 setIsExpanded(true);
-                await appWindow.setSize(new LogicalSize(700, 550));
+                await appWindow.setSize(new LogicalSize(WINDOW_SIZES.EXPANDED.width, WINDOW_SIZES.EXPANDED.height));
               } else {
                 setIsExpanded(false);
-                await appWindow.setSize(new LogicalSize(700, 130));
+                await appWindow.setSize(new LogicalSize(WINDOW_SIZES.COLLAPSED.width, WINDOW_SIZES.COLLAPSED.height));
               }
               await appWindow.show();
               await appWindow.setFocus();
-              setTimeout(() => inputRef.current?.focus(), 100);
+              setTimeout(() => inputRef.current?.focus(), TIMEOUTS.INPUT_FOCUS);
             }
           } finally {
             // Reset the flag after a short delay
             setTimeout(() => {
               isTogglingRef.current = false;
-            }, 300);
+            }, TIMEOUTS.TOGGLE_DEBOUNCE);
           }
         });
 
@@ -94,6 +150,15 @@ function App() {
     };
 
     setupShortcut();
+
+    // Cleanup function to unregister shortcut on unmount
+    return () => {
+      import("@tauri-apps/plugin-global-shortcut").then(({ unregister }) => {
+        unregister("CommandOrControl+K").catch((err) => {
+          console.error("Failed to unregister shortcut:", err);
+        });
+      });
+    };
   }, []);
 
   useEffect(() => {
@@ -105,16 +170,20 @@ function App() {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
 
-  const saveApiKey = () => {
+  const saveApiKey = async () => {
     if (apiKeyInput.trim()) {
-      localStorage.setItem('GEMINI_API_KEY', apiKeyInput.trim());
+      const store = await Store.load("settings.json");
+      await store.set('GEMINI_API_KEY', apiKeyInput.trim());
+      await store.save();
       setApiKey(apiKeyInput.trim());
       setShowSettings(false);
     }
   };
 
-  const clearApiKey = () => {
-    localStorage.removeItem('GEMINI_API_KEY');
+  const clearApiKey = async () => {
+    const store = await Store.load("settings.json");
+    await store.delete('GEMINI_API_KEY');
+    await store.save();
     setApiKey("");
     setApiKeyInput("");
     setShowSettings(false);
@@ -138,7 +207,7 @@ function App() {
       // Expand window to show the error message
       if (!isExpanded) {
         setIsExpanded(true);
-        await getCurrentWindow().setSize(new LogicalSize(700, 550));
+        await getCurrentWindow().setSize(new LogicalSize(WINDOW_SIZES.EXPANDED.width, WINDOW_SIZES.EXPANDED.height));
       }
 
       return;
@@ -154,7 +223,7 @@ function App() {
     // Expand if not already
     if (!isExpanded) {
       setIsExpanded(true);
-      await getCurrentWindow().setSize(new LogicalSize(700, 550));
+      await getCurrentWindow().setSize(new LogicalSize(WINDOW_SIZES.EXPANDED.width, WINDOW_SIZES.EXPANDED.height));
     }
 
     try {
@@ -166,17 +235,19 @@ function App() {
       }
 
       // Send to Gemini with full chat history
-      const response = await invoke<string>("send_to_gemini", {
+      const params: SendToGeminiParams = {
         message: userMessage,
         imageData,
         apiKey,
         groundingEnabled,
         thinkingEnabled,
         chatHistory,
-      });
+      };
+
+      const response = await invoke<string>("send_to_gemini", params);
 
       // Parse response (it now contains both text and sources)
-      const result = JSON.parse(response);
+      const result: GeminiResult = JSON.parse(response);
 
       // Add assistant response to chat
       setChatHistory((prev) => [
@@ -189,11 +260,24 @@ function App() {
       ]);
     } catch (error) {
       console.error("Error sending message:", error);
+
+      let errorMessage = "Sorry, something went wrong. Please try again.";
+
+      if (error instanceof Error) {
+        if (error.message.includes("API error")) {
+          errorMessage = "Unable to connect to Gemini API. Please check your API key and try again.";
+        } else if (error.message.includes("Failed to parse")) {
+          errorMessage = "Received an unexpected response from Gemini. Please try again.";
+        } else if (error.message.includes("Network") || error.message.includes("fetch")) {
+          errorMessage = "Network error. Please check your internet connection and try again.";
+        }
+      }
+
       setChatHistory((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `Error: ${error}`,
+          content: errorMessage,
         },
       ]);
     } finally {
@@ -213,7 +297,7 @@ function App() {
       }
       // Collapse and reset before hiding
       setIsExpanded(false);
-      await getCurrentWindow().setSize(new LogicalSize(700, 130));
+      await getCurrentWindow().setSize(new LogicalSize(WINDOW_SIZES.COLLAPSED.width, WINDOW_SIZES.COLLAPSED.height));
       setSearchQuery("");
       setChatHistory([]);
       await getCurrentWindow().hide();
@@ -223,28 +307,9 @@ function App() {
   return (
     <div className="spotlight-container" onKeyDown={handleKeyDown} tabIndex={-1}>
       <div className={`content-area ${isExpanded ? "expanded" : ""}`}>
-        <div className="chat-container" ref={chatContainerRef}>
+        <div className="chat-container" ref={chatContainerRef} role="log" aria-live="polite" aria-label="Chat conversation">
           {chatHistory.map((msg, idx) => (
-            <div key={idx} className={`chat-message ${msg.role}`}>
-              <div className="message-content">
-                <MessageRenderer content={msg.content} />
-              </div>
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="message-sources">
-                  {msg.sources.map((source, sidx) => (
-                    <a
-                      key={sidx}
-                      href={source.uri}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="source-pill"
-                    >
-                      {source.title}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ChatMessage key={idx} msg={msg} idx={idx} />
           ))}
           {isLoading && (
             <div className="chat-message assistant">
@@ -257,12 +322,13 @@ function App() {
       </div>
 
       <div className="controls-row">
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="controls-container">
           <label className="screen-capture-toggle">
             <input
               type="checkbox"
               checked={screenCaptureEnabled}
               onChange={(e) => setScreenCaptureEnabled(e.target.checked)}
+              aria-label="Toggle screen visibility capture"
             />
             <span>Screen Visibility</span>
           </label>
@@ -271,6 +337,7 @@ function App() {
               type="checkbox"
               checked={groundingEnabled}
               onChange={(e) => setGroundingEnabled(e.target.checked)}
+              aria-label="Toggle web grounding"
             />
             <span>Web Grounding</span>
           </label>
@@ -279,6 +346,7 @@ function App() {
               type="checkbox"
               checked={thinkingEnabled}
               onChange={(e) => setThinkingEnabled(e.target.checked)}
+              aria-label="Toggle extended thinking mode"
             />
             <span>Extended Thinking</span>
           </label>
@@ -288,6 +356,7 @@ function App() {
             className="settings-btn"
             onClick={() => setShowSettings(true)}
             title="API Key Settings"
+            aria-label="Open API key settings"
           >
             ⚙️
           </button>
@@ -304,6 +373,8 @@ function App() {
           onChange={(e) => setSearchQuery(e.target.value)}
           autoFocus
           disabled={isLoading}
+          aria-label="Search query input"
+          aria-describedby="search-description"
         />
       </div>
 
@@ -313,7 +384,7 @@ function App() {
             <div className="api-key-setup">
               <h3>API Key Settings</h3>
               <p>
-                Enter your Gemini API key. It will be stored in your browser's localStorage.
+                Enter your Gemini API key. It will be stored securely on your device.
               </p>
               <input
                 type="password"
@@ -325,11 +396,12 @@ function App() {
                   if (e.key === 'Escape') setShowSettings(false);
                 }}
                 autoFocus
+                aria-label="API key input"
               />
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                <button onClick={saveApiKey}>Save</button>
-                <button onClick={clearApiKey}>Clear</button>
-                <button onClick={() => setShowSettings(false)}>Cancel</button>
+              <div className="button-group">
+                <button onClick={saveApiKey} aria-label="Save API key">Save</button>
+                <button onClick={clearApiKey} aria-label="Clear API key">Clear</button>
+                <button onClick={() => setShowSettings(false)} aria-label="Cancel and close settings">Cancel</button>
               </div>
             </div>
           </div>

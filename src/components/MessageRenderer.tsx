@@ -5,7 +5,7 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
@@ -75,7 +75,7 @@ const MessageRenderer = ({ content }: MessageRendererProps) => {
     <ReactMarkdown
       remarkPlugins={[remarkBreaks, remarkGfm, remarkMath]}
       rehypePlugins={[
-        rehypeRaw,
+        rehypeSanitize,
         [rehypeKatex, { throwOnError: false, output: "html" }],
       ]}
       components={markdownComponents}

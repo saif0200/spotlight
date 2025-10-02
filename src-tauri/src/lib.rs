@@ -9,11 +9,9 @@ use core_graphics::display::CGDisplay;
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
+// Constants
+const UNLIMITED_THINKING_BUDGET: i32 = -1;
+const GEMINI_API_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
 
 #[tauri::command]
 async fn capture_screen(window: tauri::Window) -> Result<String, String> {
@@ -283,7 +281,7 @@ async fn send_to_gemini(
     let generation_config = if let Some(enabled) = thinking_enabled {
         Some(GenerationConfig {
             thinking_config: ThinkingConfig {
-                thinking_budget: if enabled { -1 } else { 0 },
+                thinking_budget: if enabled { UNLIMITED_THINKING_BUDGET } else { 0 },
             },
         })
     } else {
@@ -297,10 +295,7 @@ async fn send_to_gemini(
     };
 
     let client = reqwest::Client::new();
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key={}",
-        api_key
-    );
+    let url = format!("{}?key={}", GEMINI_API_ENDPOINT, api_key);
 
     let response = client
         .post(&url)
@@ -338,16 +333,20 @@ async fn send_to_gemini(
                 .iter()
                 .filter_map(|chunk| {
                     chunk.web.as_ref().and_then(|web| {
-                        let uri = web.uri.clone()?;
-                        let title = web.title.clone().unwrap_or_else(|| {
-                            // Fallback to hostname if title not available
-                            uri.split("://")
-                                .nth(1)
-                                .and_then(|s| s.split('/').next())
-                                .unwrap_or(&uri)
-                                .to_string()
-                        });
-                        Some(SourceInfo { title, uri })
+                        web.uri.as_ref().map(|uri| {
+                            let title = web.title.as_ref().map(|t| t.to_string()).unwrap_or_else(|| {
+                                // Fallback to hostname if title not available
+                                uri.split("://")
+                                    .nth(1)
+                                    .and_then(|s| s.split('/').next())
+                                    .unwrap_or(uri)
+                                    .to_string()
+                            });
+                            SourceInfo {
+                                title,
+                                uri: uri.to_string()
+                            }
+                        })
                     })
                 })
                 .collect::<Vec<SourceInfo>>()
@@ -370,8 +369,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
-            greet,
             capture_screen,
             send_to_gemini
         ])

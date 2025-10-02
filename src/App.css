@@ -470,6 +470,17 @@ body {
   opacity: 1;
 }
 
+.controls-container {
+  display: flex;
+  gap: 12px;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
 .settings-modal-overlay {
   position: fixed;
   top: 0;
