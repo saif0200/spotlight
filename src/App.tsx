@@ -18,6 +18,7 @@ function App() {
   const inputRef = useRef<HTMLInputElement>(null);
   const isTogglingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const chatHistoryRef = useRef<Message[]>([]);
 
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
 
@@ -44,18 +45,20 @@ function App() {
             console.log("Window visible:", isVisible);
 
             if (isVisible) {
-              // Collapse and reset before hiding
-              setIsExpanded(false);
-              await appWindow.setSize(new LogicalSize(700, 130));
+              // Hide window without resetting state
               await appWindow.hide();
-              setSearchQuery("");
             } else {
-              // Ensure collapsed state when showing
-              setIsExpanded(false);
-              await appWindow.setSize(new LogicalSize(700, 130));
+              // Show in expanded state if there's chat history
+              const hasHistory = chatHistoryRef.current.length > 0;
+              if (hasHistory) {
+                setIsExpanded(true);
+                await appWindow.setSize(new LogicalSize(700, 550));
+              } else {
+                setIsExpanded(false);
+                await appWindow.setSize(new LogicalSize(700, 130));
+              }
               await appWindow.show();
               await appWindow.setFocus();
-              setSearchQuery("");
               setTimeout(() => inputRef.current?.focus(), 100);
             }
           } finally {
@@ -87,6 +90,8 @@ function App() {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
+    // Keep ref in sync
+    chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
 
   const sendMessage = async () => {
