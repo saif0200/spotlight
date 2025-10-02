@@ -87,16 +87,17 @@ body {
 
 .chat-message {
   display: flex;
+  flex-direction: column;
   margin: 4px 0;
   width: 100%;
 }
 
 .chat-message.user {
-  justify-content: flex-end;
+  align-items: flex-end;
 }
 
 .chat-message.assistant {
-  justify-content: flex-start;
+  align-items: flex-start;
 }
 
 .message-content {
@@ -255,6 +256,44 @@ body {
 .message-content.loading {
   font-style: italic;
   opacity: 0.7;
+}
+
+.message-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.source-pill {
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.7);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.source-pill:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.85);
+}
+
+.chat-message.user .source-pill {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.chat-message.user .source-pill:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: white;
 }
 
 .controls-row {
@@ -544,5 +583,17 @@ body {
 
   .results-container::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+  }
+
+  .source-pill {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .source-pill:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.95);
   }
 }

@@ -59,14 +59,35 @@ struct GeminiRequest {
     tools: Option<Vec<Tool>>,
 }
 
+#[derive(Deserialize, Serialize, Clone)]
+struct WebInfo {
+    uri: Option<String>,
+    title: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct GroundingChunk {
+    web: Option<WebInfo>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+struct GroundingMetadata {
+    #[serde(rename = "groundingChunks")]
+    grounding_chunks: Option<Vec<GroundingChunk>>,
+}
+
 #[derive(Deserialize)]
 struct GeminiResponse {
     candidates: Vec<Candidate>,
+    #[serde(rename = "groundingMetadata")]
+    grounding_metadata: Option<GroundingMetadata>,
 }
 
 #[derive(Deserialize)]
 struct Candidate {
     content: Content,
+    #[serde(rename = "groundingMetadata")]
+    grounding_metadata: Option<GroundingMetadata>,
 }
 
 #[derive(Deserialize)]
@@ -77,6 +98,18 @@ struct Content {
 #[derive(Deserialize)]
 struct Part {
     text: String,
+}
+
+#[derive(Serialize, Clone)]
+struct SourceInfo {
+    title: String,
+    uri: String,
+}
+
+#[derive(Serialize)]
+struct GeminiResult {
+    text: String,
+    sources: Option<Vec<SourceInfo>>,
 }
 
 #[tauri::command]
@@ -141,12 +174,51 @@ async fn send_to_gemini(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    gemini_response
+    let text = gemini_response
         .candidates
         .first()
         .and_then(|c| c.content.parts.first())
         .map(|p| p.text.clone())
-        .ok_or_else(|| "No response from Gemini".to_string())
+        .ok_or_else(|| "No response from Gemini".to_string())?;
+
+    // Extract sources from grounding metadata
+    let sources = gemini_response
+        .candidates
+        .first()
+        .and_then(|c| c.grounding_metadata.as_ref())
+        .or(gemini_response.grounding_metadata.as_ref())
+        .and_then(|metadata| metadata.grounding_chunks.as_ref())
+        .map(|chunks| {
+            chunks
+                .iter()
+                .filter_map(|chunk| {
+                    chunk.web.as_ref().and_then(|web| {
+                        let uri = web.uri.clone()?;
+                        let title = web.title.clone().unwrap_or_else(|| {
+                            // Fallback to hostname if title not available
+                            uri.split("://")
+                                .nth(1)
+                                .and_then(|s| s.split('/').next())
+                                .unwrap_or(&uri)
+                                .to_string()
+                        });
+                        Some(SourceInfo { title, uri })
+                    })
+                })
+                .collect::<Vec<SourceInfo>>()
+        });
+
+    let result = GeminiResult {
+        text,
+        sources: if sources.as_ref().map_or(false, |s| !s.is_empty()) {
+            sources
+        } else {
+            None
+        },
+    };
+
+    serde_json::to_string(&result)
+        .map_err(|e| format!("Failed to serialize result: {}", e))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

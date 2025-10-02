@@ -6,9 +6,15 @@ import "./App.css";
 import "katex/dist/katex.min.css";
 import MessageRenderer from "./components/MessageRenderer";
 
+interface SourceInfo {
+  title: string;
+  uri: string;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
+  sources?: SourceInfo[];
 }
 
 function App() {
@@ -129,8 +135,18 @@ function App() {
         groundingEnabled,
       });
 
+      // Parse response (it now contains both text and sources)
+      const result = JSON.parse(response);
+
       // Add assistant response to chat
-      setChatHistory((prev) => [...prev, { role: "assistant", content: response }]);
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: result.text,
+          sources: result.sources,
+        },
+      ]);
     } catch (error) {
       console.error("Error sending message:", error);
       setChatHistory((prev) => [
@@ -168,6 +184,21 @@ function App() {
               <div className="message-content">
                 <MessageRenderer content={msg.content} />
               </div>
+              {msg.sources && msg.sources.length > 0 && (
+                <div className="message-sources">
+                  {msg.sources.map((source, sidx) => (
+                    <a
+                      key={sidx}
+                      href={source.uri}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="source-pill"
+                    >
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {isLoading && (
