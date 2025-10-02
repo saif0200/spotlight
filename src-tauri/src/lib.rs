@@ -53,10 +53,25 @@ struct Tool {
 }
 
 #[derive(Serialize, Deserialize)]
+struct ThinkingConfig {
+    #[serde(rename = "thinkingBudget")]
+    thinking_budget: i32,
+}
+
+#[derive(Serialize, Deserialize)]
+struct GenerationConfig {
+    #[serde(rename = "thinkingConfig")]
+    thinking_config: ThinkingConfig,
+}
+
+#[derive(Serialize, Deserialize)]
 struct GeminiRequest {
     contents: Vec<GeminiContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<Tool>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "generationConfig")]
+    generation_config: Option<GenerationConfig>,
 }
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -118,6 +133,7 @@ async fn send_to_gemini(
     image_data: Option<String>,
     api_key: String,
     grounding_enabled: Option<bool>,
+    thinking_enabled: Option<bool>,
 ) -> Result<String, String> {
     let mut parts = vec![];
 
@@ -146,9 +162,20 @@ async fn send_to_gemini(
         None
     };
 
+    let generation_config = if let Some(enabled) = thinking_enabled {
+        Some(GenerationConfig {
+            thinking_config: ThinkingConfig {
+                thinking_budget: if enabled { -1 } else { 0 },
+            },
+        })
+    } else {
+        None
+    };
+
     let request = GeminiRequest {
         contents: vec![GeminiContent { parts }],
         tools,
+        generation_config,
     };
 
     let client = reqwest::Client::new();

@@ -22,6 +22,7 @@ function App() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [screenCaptureEnabled, setScreenCaptureEnabled] = useState(false);
   const [groundingEnabled, setGroundingEnabled] = useState(false);
+  const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -133,6 +134,7 @@ function App() {
         imageData,
         apiKey,
         groundingEnabled,
+        thinkingEnabled,
       });
 
       // Parse response (it now contains both text and sources)
@@ -203,7 +205,9 @@ function App() {
           ))}
           {isLoading && (
             <div className="chat-message assistant">
-              <div className="message-content loading">Thinking...</div>
+              <div className="message-content loading">
+                <span className="loading-text" data-text="Thinking...">Thinking...</span>
+              </div>
             </div>
           )}
         </div>
@@ -225,6 +229,14 @@ function App() {
             onChange={(e) => setGroundingEnabled(e.target.checked)}
           />
           <span>Web Grounding</span>
+        </label>
+        <label className="screen-capture-toggle">
+          <input
+            type="checkbox"
+            checked={thinkingEnabled}
+            onChange={(e) => setThinkingEnabled(e.target.checked)}
+          />
+          <span>Extended Thinking</span>
         </label>
       </div>
 

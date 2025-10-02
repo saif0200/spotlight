@@ -255,7 +255,40 @@ body {
 
 .message-content.loading {
   font-style: italic;
-  opacity: 0.7;
+  opacity: 0.85;
+}
+
+.loading-text {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+}
+
+.loading-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 25%, rgba(255, 255, 255, 0.75) 50%, transparent 75%);
+  background-size: 200% 100%;
+  background-position: -150% 0;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer-text 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer-text {
+  0% {
+    background-position: -150% 0;
+  }
+  60% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
 }
 
 .message-sources {
