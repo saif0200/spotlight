@@ -88,13 +88,6 @@ function App() {
         });
 
         console.log("Global shortcut registered successfully!");
-
-        // Show window initially for testing
-        setTimeout(async () => {
-          await appWindow.show();
-          await appWindow.setFocus();
-          inputRef.current?.focus();
-        }, 500);
       } catch (error) {
         console.error("Failed to setup shortcut:", error);
       }
@@ -141,6 +134,13 @@ function App() {
         },
       ]);
       setSearchQuery("");
+
+      // Expand window to show the error message
+      if (!isExpanded) {
+        setIsExpanded(true);
+        await getCurrentWindow().setSize(new LogicalSize(700, 550));
+      }
+
       return;
     }
 
