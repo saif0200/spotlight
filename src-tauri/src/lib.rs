@@ -44,8 +44,19 @@ struct GeminiContent {
 }
 
 #[derive(Serialize, Deserialize)]
+struct GoogleSearch {}
+
+#[derive(Serialize, Deserialize)]
+struct Tool {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    google_search: Option<GoogleSearch>,
+}
+
+#[derive(Serialize, Deserialize)]
 struct GeminiRequest {
     contents: Vec<GeminiContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<Tool>>,
 }
 
 #[derive(Deserialize)]
@@ -73,6 +84,7 @@ async fn send_to_gemini(
     message: String,
     image_data: Option<String>,
     api_key: String,
+    grounding_enabled: Option<bool>,
 ) -> Result<String, String> {
     let mut parts = vec![];
 
@@ -93,8 +105,17 @@ async fn send_to_gemini(
         });
     }
 
+    let tools = if grounding_enabled.unwrap_or(false) {
+        Some(vec![Tool {
+            google_search: Some(GoogleSearch {}),
+        }])
+    } else {
+        None
+    };
+
     let request = GeminiRequest {
         contents: vec![GeminiContent { parts }],
+        tools,
     };
 
     let client = reqwest::Client::new();

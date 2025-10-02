@@ -15,6 +15,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [screenCaptureEnabled, setScreenCaptureEnabled] = useState(false);
+  const [groundingEnabled, setGroundingEnabled] = useState(false);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -125,6 +126,7 @@ function App() {
         message: userMessage,
         imageData,
         apiKey,
+        groundingEnabled,
       });
 
       // Add assistant response to chat
@@ -184,6 +186,14 @@ function App() {
             onChange={(e) => setScreenCaptureEnabled(e.target.checked)}
           />
           <span>Screen Visibility</span>
+        </label>
+        <label className="screen-capture-toggle">
+          <input
+            type="checkbox"
+            checked={groundingEnabled}
+            onChange={(e) => setGroundingEnabled(e.target.checked)}
+          />
+          <span>Web Grounding</span>
         </label>
       </div>
 
