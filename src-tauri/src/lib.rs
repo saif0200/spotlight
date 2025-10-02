@@ -20,10 +20,10 @@ async fn capture_screen(window: tauri::Window) -> Result<String, String> {
     capture_screen_inner(&window)
 }
 
-fn capture_screen_inner(window: &tauri::Window) -> Result<String, String> {
+fn capture_screen_inner(_window: &tauri::Window) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
-        match capture_screen_without_overlay_mac(window) {
+        match capture_screen_without_overlay_mac(_window) {
             Ok(png_bytes) => return Ok(general_purpose::STANDARD.encode(png_bytes)),
             Err(err) => {
                 eprintln!("Falling back to regular capture: {}", err);
