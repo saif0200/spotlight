@@ -3,6 +3,8 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
+import "katex/dist/katex.min.css";
+import MessageRenderer from "./components/MessageRenderer";
 
 interface Message {
   role: "user" | "assistant";
@@ -161,7 +163,9 @@ function App() {
         <div className="chat-container" ref={chatContainerRef}>
           {chatHistory.map((msg, idx) => (
             <div key={idx} className={`chat-message ${msg.role}`}>
-              <div className="message-content">{msg.content}</div>
+              <div className="message-content">
+                <MessageRenderer content={msg.content} />
+              </div>
             </div>
           ))}
           {isLoading && (
