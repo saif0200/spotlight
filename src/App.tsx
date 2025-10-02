@@ -25,12 +25,20 @@ function App() {
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const isTogglingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<Message[]>([]);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+  // Load API key from localStorage only
+  useEffect(() => {
+    const storedKey = localStorage.getItem('GEMINI_API_KEY') || "";
+    setApiKey(storedKey);
+    setApiKeyInput(storedKey);
+  }, []);
 
   useEffect(() => {
     const setupShortcut = async () => {
@@ -104,8 +112,37 @@ function App() {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
 
+  const saveApiKey = () => {
+    if (apiKeyInput.trim()) {
+      localStorage.setItem('GEMINI_API_KEY', apiKeyInput.trim());
+      setApiKey(apiKeyInput.trim());
+      setShowSettings(false);
+    }
+  };
+
+  const clearApiKey = () => {
+    localStorage.removeItem('GEMINI_API_KEY');
+    setApiKey("");
+    setApiKeyInput("");
+    setShowSettings(false);
+  };
+
   const sendMessage = async () => {
     if (!searchQuery.trim() || isLoading) return;
+
+    // Check if API key is set
+    if (!apiKey.trim()) {
+      setChatHistory((prev) => [
+        ...prev,
+        { role: "user", content: searchQuery },
+        {
+          role: "assistant",
+          content: "Please set your API key first. Click the ⚙️ settings button to add your Gemini API key.",
+        },
+      ]);
+      setSearchQuery("");
+      return;
+    }
 
     setIsLoading(true);
     const userMessage = searchQuery;
@@ -168,6 +205,11 @@ function App() {
       e.preventDefault();
       await sendMessage();
     } else if (e.key === "Escape") {
+      // Close settings if open
+      if (showSettings) {
+        setShowSettings(false);
+        return;
+      }
       // Collapse and reset before hiding
       setIsExpanded(false);
       await getCurrentWindow().setSize(new LogicalSize(700, 130));
@@ -214,30 +256,41 @@ function App() {
       </div>
 
       <div className="controls-row">
-        <label className="screen-capture-toggle">
-          <input
-            type="checkbox"
-            checked={screenCaptureEnabled}
-            onChange={(e) => setScreenCaptureEnabled(e.target.checked)}
-          />
-          <span>Screen Visibility</span>
-        </label>
-        <label className="screen-capture-toggle">
-          <input
-            type="checkbox"
-            checked={groundingEnabled}
-            onChange={(e) => setGroundingEnabled(e.target.checked)}
-          />
-          <span>Web Grounding</span>
-        </label>
-        <label className="screen-capture-toggle">
-          <input
-            type="checkbox"
-            checked={thinkingEnabled}
-            onChange={(e) => setThinkingEnabled(e.target.checked)}
-          />
-          <span>Extended Thinking</span>
-        </label>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <label className="screen-capture-toggle">
+            <input
+              type="checkbox"
+              checked={screenCaptureEnabled}
+              onChange={(e) => setScreenCaptureEnabled(e.target.checked)}
+            />
+            <span>Screen Visibility</span>
+          </label>
+          <label className="screen-capture-toggle">
+            <input
+              type="checkbox"
+              checked={groundingEnabled}
+              onChange={(e) => setGroundingEnabled(e.target.checked)}
+            />
+            <span>Web Grounding</span>
+          </label>
+          <label className="screen-capture-toggle">
+            <input
+              type="checkbox"
+              checked={thinkingEnabled}
+              onChange={(e) => setThinkingEnabled(e.target.checked)}
+            />
+            <span>Extended Thinking</span>
+          </label>
+        </div>
+        {isExpanded && (
+          <button
+            className="settings-btn"
+            onClick={() => setShowSettings(true)}
+            title="API Key Settings"
+          >
+            ⚙️
+          </button>
+        )}
       </div>
 
       <div className="liquid-glass-box">
@@ -253,6 +306,35 @@ function App() {
           disabled={isLoading}
         />
       </div>
+
+      {showSettings && (
+        <div className="settings-modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="api-key-setup">
+              <h3>API Key Settings</h3>
+              <p>
+                Enter your Gemini API key. It will be stored in your browser's localStorage.
+              </p>
+              <input
+                type="password"
+                placeholder="Enter API Key"
+                value={apiKeyInput}
+                onChange={(e) => setApiKeyInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveApiKey();
+                  if (e.key === 'Escape') setShowSettings(false);
+                }}
+                autoFocus
+              />
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <button onClick={saveApiKey}>Save</button>
+                <button onClick={clearApiKey}>Clear</button>
+                <button onClick={() => setShowSettings(false)}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

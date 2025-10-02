@@ -365,10 +365,33 @@ body {
   cursor: pointer;
   padding: 4px 8px;
   opacity: 0.7;
+  transition: opacity 0.2s ease;
 }
 
 .settings-btn:hover {
   opacity: 1;
+}
+
+.settings-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.settings-modal {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  min-width: 400px;
+  max-width: 500px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 
 .api-key-setup {
@@ -400,17 +423,32 @@ body {
 
 .api-key-setup button {
   padding: 10px 24px;
-  background: rgba(0, 120, 250, 0.85);
-  color: white;
-  border: none;
+  background: rgba(255, 255, 255, 0.5);
+  color: rgba(0, 0, 0, 0.87);
+  border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .api-key-setup button:hover {
-  background: rgba(0, 120, 250, 1);
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .api-key-setup button {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.92);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .api-key-setup button:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 }
 
 /* Liquid Glass Effect */
@@ -628,5 +666,10 @@ body {
     background: rgba(255, 255, 255, 0.15);
     border-color: rgba(255, 255, 255, 0.3);
     color: rgba(255, 255, 255, 0.95);
+  }
+
+  .settings-modal {
+    background: rgba(30, 30, 35, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
   }
 }
