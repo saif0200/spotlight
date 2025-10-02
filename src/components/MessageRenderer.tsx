@@ -5,6 +5,9 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface MessageRendererProps {
   content: string;
@@ -17,6 +20,27 @@ interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
 }
 
 const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps) => {
+  const match = /language-(\w+)/.exec(className || "");
+  const language = match ? match[1] : "";
+  const code = String(children).replace(/\n$/, "");
+
+  if (!inline && language) {
+    return (
+      <SyntaxHighlighter
+        style={oneDark}
+        language={language}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          borderRadius: "8px",
+          fontSize: "0.9em",
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    );
+  }
+
   if (!inline) {
     return (
       <pre className={className}>
@@ -50,7 +74,10 @@ const MessageRenderer = ({ content }: MessageRendererProps) => {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkBreaks, remarkGfm, remarkMath]}
-      rehypePlugins={[rehypeKatex]}
+      rehypePlugins={[
+        rehypeRaw,
+        [rehypeKatex, { throwOnError: false, output: "html" }],
+      ]}
       components={markdownComponents}
     >
       {content}
