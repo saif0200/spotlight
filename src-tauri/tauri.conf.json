@@ -15,7 +15,7 @@
       {
         "title": "Spotlight Search",
         "width": 700,
-        "height": 80,
+        "height": 130,
         "center": true,
         "resizable": false,
         "decorations": false,

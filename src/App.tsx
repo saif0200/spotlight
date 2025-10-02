@@ -34,7 +34,7 @@ interface GeminiResult {
 }
 
 const WINDOW_SIZES = {
-  EXPANDED: { width: 700, height: 550 },
+  EXPANDED: { width: 700, height: 600 },
   COLLAPSED: { width: 700, height: 130 },
 } as const;
 
@@ -88,10 +88,16 @@ function App() {
   // Load API key from secure store
   useEffect(() => {
     const loadApiKey = async () => {
-      const store = await Store.load("settings.json");
-      const storedKey = await store.get<string>('GEMINI_API_KEY') || "";
-      setApiKey(storedKey);
-      setApiKeyInput(storedKey);
+      try {
+        const store = await Store.load("settings.json");
+        const storedKey = await store.get<string>('GEMINI_API_KEY') || "";
+        setApiKey(storedKey);
+        setApiKeyInput(storedKey);
+        console.log("API key loaded successfully");
+      } catch (error) {
+        console.error("Failed to load API key from store:", error);
+        // Continue without API key - user can set it later
+      }
     };
     loadApiKey();
   }, []);
@@ -101,10 +107,11 @@ function App() {
       try {
         const appWindow = getCurrentWindow();
 
-        console.log("Setting up global shortcut...");
+        console.log("🔧 Setting up global shortcut...");
 
         // Register Cmd+K (macOS) / Ctrl+K (others)
         await register("CommandOrControl+K", async () => {
+          console.log("⌨️ Global shortcut triggered!");
           // Prevent multiple rapid triggers
           if (isTogglingRef.current) {
             console.log("Already toggling, ignoring...");
@@ -143,22 +150,20 @@ function App() {
           }
         });
 
-        console.log("Global shortcut registered successfully!");
+        console.log("✅ Global shortcut (Cmd+K / Ctrl+K) registered successfully!");
       } catch (error) {
-        console.error("Failed to setup shortcut:", error);
+        console.error("❌ Failed to setup shortcut:", error);
+        console.error("This could be due to:");
+        console.error("1. Missing accessibility permissions on macOS");
+        console.error("2. Another app using the same shortcut");
+        console.error("3. Missing permissions in capabilities file");
       }
     };
 
     setupShortcut();
 
-    // Cleanup function to unregister shortcut on unmount
-    return () => {
-      import("@tauri-apps/plugin-global-shortcut").then(({ unregister }) => {
-        unregister("CommandOrControl+K").catch((err) => {
-          console.error("Failed to unregister shortcut:", err);
-        });
-      });
-    };
+    // Note: No cleanup function - global shortcuts should persist for app lifetime
+    // React.StrictMode causes mount/unmount cycles in dev that would break the shortcut
   }, []);
 
   useEffect(() => {
