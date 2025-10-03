@@ -52,6 +52,9 @@ jobs:
       - name: Build Tauri App
         run: npm run tauri build -- --target x86_64-apple-darwin
 
+      - name: Sign app
+        run: codesign --force --deep --sign - src-tauri/target/x86_64-apple-darwin/release/bundle/macos/spotlight.app
+
       - name: Package app
         run: |
           cd src-tauri/target/x86_64-apple-darwin/release/bundle/macos
@@ -83,6 +86,9 @@ jobs:
 
       - name: Build Tauri App
         run: npm run tauri build -- --target aarch64-apple-darwin
+
+      - name: Sign app
+        run: codesign --force --deep --sign - src-tauri/target/aarch64-apple-darwin/release/bundle/macos/spotlight.app
 
       - name: Package app
         run: |
