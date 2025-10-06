@@ -29,17 +29,29 @@ fn capture_screen_inner(_window: &tauri::Window) -> Result<String, String> {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    {
+        match capture_screen_without_overlay_windows(_window) {
+            Ok(encoded) => return Ok(encoded),
+            Err(err) => {
+                eprintln!("Falling back to regular capture: {}", err);
+            }
+        }
+    }
+
     capture_full_display_base64()
 }
 
-fn capture_full_display_base64() -> Result<String, String> {
+fn capture_full_display_png() -> Result<Vec<u8>, String> {
     let screens = Screen::all().map_err(|e| e.to_string())?;
     let screen = screens.first().ok_or("No screens found")?;
 
     let image = screen.capture().map_err(|e| e.to_string())?;
-    let png_bytes = image.to_png().map_err(|e| e.to_string())?;
+    image.to_png().map_err(|e| e.to_string())
+}
 
-    Ok(general_purpose::STANDARD.encode(&png_bytes))
+fn capture_full_display_base64() -> Result<String, String> {
+    capture_full_display_png().map(|png_bytes| general_purpose::STANDARD.encode(png_bytes))
 }
 
 #[cfg(target_os = "macos")]
@@ -108,6 +120,40 @@ fn capture_screen_without_overlay_mac(window: &tauri::Window) -> Result<Vec<u8>,
     }
 
     Ok(png_bytes)
+}
+
+#[cfg(target_os = "windows")]
+fn capture_screen_without_overlay_windows(window: &tauri::Window) -> Result<String, String> {
+    use std::{thread, time::Duration};
+
+    let was_visible = window
+        .is_visible()
+        .map_err(|e| format!("Failed to determine window visibility: {}", e))?;
+
+    if was_visible {
+        window
+            .hide()
+            .map_err(|e| format!("Failed to hide window before capture: {}", e))?;
+        // Give the compositor time to remove the window from the frame buffer.
+        thread::sleep(Duration::from_millis(120));
+    }
+
+    let capture_result = capture_full_display_png();
+
+    if was_visible {
+        if let Err(err) = window.show() {
+            eprintln!("Failed to restore window visibility after capture: {}", err);
+        } else {
+            // Allow the window to be redrawn before restoring focus.
+            thread::sleep(Duration::from_millis(50));
+        }
+
+        if let Err(err) = window.set_focus() {
+            eprintln!("Failed to refocus window after capture: {}", err);
+        }
+    }
+
+    capture_result.map(|png_bytes| general_purpose::STANDARD.encode(png_bytes))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -281,7 +327,11 @@ async fn send_to_gemini(
     let generation_config = if let Some(enabled) = thinking_enabled {
         Some(GenerationConfig {
             thinking_config: ThinkingConfig {
-                thinking_budget: if enabled { UNLIMITED_THINKING_BUDGET } else { 0 },
+                thinking_budget: if enabled {
+                    UNLIMITED_THINKING_BUDGET
+                } else {
+                    0
+                },
             },
         })
     } else {
@@ -334,17 +384,21 @@ async fn send_to_gemini(
                 .filter_map(|chunk| {
                     chunk.web.as_ref().and_then(|web| {
                         web.uri.as_ref().map(|uri| {
-                            let title = web.title.as_ref().map(|t| t.to_string()).unwrap_or_else(|| {
-                                // Fallback to hostname if title not available
-                                uri.split("://")
-                                    .nth(1)
-                                    .and_then(|s| s.split('/').next())
-                                    .unwrap_or(uri)
-                                    .to_string()
-                            });
+                            let title =
+                                web.title
+                                    .as_ref()
+                                    .map(|t| t.to_string())
+                                    .unwrap_or_else(|| {
+                                        // Fallback to hostname if title not available
+                                        uri.split("://")
+                                            .nth(1)
+                                            .and_then(|s| s.split('/').next())
+                                            .unwrap_or(uri)
+                                            .to_string()
+                                    });
                             SourceInfo {
                                 title,
-                                uri: uri.to_string()
+                                uri: uri.to_string(),
                             }
                         })
                     })
@@ -370,10 +424,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![
-            capture_screen,
-            send_to_gemini
-        ])
+        .invoke_handler(tauri::generate_handler![capture_screen, send_to_gemini])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

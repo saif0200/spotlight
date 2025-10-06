@@ -22,7 +22,7 @@ interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
 const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps) => {
   const match = /language-(\w+)/.exec(className || "");
   const language = match ? match[1] : "";
-  const code = String(children).replace(/\n$/, "");
+  const code = String(children).replace(/\s+$/, "").trim();
 
   if (!inline && language) {
     return (
@@ -31,9 +31,10 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
         language={language}
         PreTag="div"
         customStyle={{
-          margin: 0,
+          margin: "0 0 4px 0",
           borderRadius: "8px",
           fontSize: "0.9em",
+          padding: "12px",
         }}
       >
         {code}
