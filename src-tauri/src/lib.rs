@@ -11,7 +11,7 @@ use objc::{msg_send, sel, sel_impl};
 
 // Constants
 const UNLIMITED_THINKING_BUDGET: i32 = -1;
-const GEMINI_API_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent";
+const GEMINI_API_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
 #[tauri::command]
 async fn capture_screen(window: tauri::Window) -> Result<String, String> {
