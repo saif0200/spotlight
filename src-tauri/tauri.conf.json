@@ -20,12 +20,7 @@
         "resizable": false,
         "decorations": false,
         "transparent": true,
-        "backgroundColor": {
-          "r": 0,
-          "g": 0,
-          "b": 0,
-          "a": 0
-        },
+        "backgroundColor": "#00000000",
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "visible": false,
