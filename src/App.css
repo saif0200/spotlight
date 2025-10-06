@@ -13,9 +13,20 @@ html {
   --window-padding: clamp(12px, 3vh, 20px);
   --frame-width: min(660px, calc(100vw - (var(--window-padding) * 2)));
   font-family: var(--font-family-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   background: transparent;
+}
+
+/* Platform-specific font smoothing */
+@supports (-webkit-font-smoothing: antialiased) {
+  :root {
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@supports (-moz-osx-font-smoothing: grayscale) {
+  :root {
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 body {
@@ -55,12 +66,21 @@ body {
 .content-area.expanded {
   height: 420px;
   background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
   margin-bottom: 8px;
   opacity: 1;
   transform: scale(1);
   padding: 12px;
+}
+
+/* Fallback for browsers/platforms without backdrop-filter support */
+@supports not (backdrop-filter: blur(20px)) {
+  .content-area.expanded {
+    background: rgba(255, 255, 255, 0.92);
+  }
 }
 
 .chat-container {
@@ -426,11 +446,20 @@ body {
 
 .controls-row > div:first-child {
   background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 12px;
   padding: 6px 10px;
   display: flex;
   gap: 12px;
+}
+
+/* Fallback for browsers/platforms without backdrop-filter support */
+@supports not (backdrop-filter: blur(20px)) {
+  .controls-row > div:first-child {
+    background: rgba(255, 255, 255, 0.92);
+  }
 }
 
 .screen-capture-toggle {
@@ -503,6 +532,8 @@ body {
 
 .settings-modal {
   background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
   min-width: 400px;
@@ -578,12 +609,21 @@ body {
 
   /* Glassmorphism */
   background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
 
   /* Liquid glass border */
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
 
   /* Transitions removed to disable animations */
+}
+
+/* Fallback for browsers/platforms without backdrop-filter support */
+@supports not (backdrop-filter: blur(20px)) {
+  .liquid-glass-box {
+    background: rgba(255, 255, 255, 0.92);
+  }
 }
 
 
@@ -698,12 +738,24 @@ body {
 @media (prefers-color-scheme: dark) {
   .content-area.expanded {
     background: rgba(30, 30, 35, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
   .liquid-glass-box {
     background: rgba(30, 30, 35, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  /* Dark mode fallback for browsers/platforms without backdrop-filter support */
+  @supports not (backdrop-filter: blur(20px)) {
+    .content-area.expanded,
+    .liquid-glass-box {
+      background: rgba(30, 30, 35, 0.95);
+    }
   }
 
   .search-input {
@@ -716,6 +768,8 @@ body {
 
   .controls-row > div:first-child {
     background: rgba(30, 30, 35, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
@@ -806,6 +860,8 @@ body {
 
   .settings-modal {
     background: rgba(30, 30, 35, 0.95);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 

@@ -424,6 +424,22 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .setup(|app| {
+            let window = app.get_webview_window("main").unwrap();
+
+            #[cfg(target_os = "windows")]
+            {
+                use window_vibrancy::{apply_blur, apply_acrylic};
+
+                // Try to apply acrylic effect (Windows 10/11)
+                // If it fails, fall back to blur
+                if apply_acrylic(&window, Some((255, 255, 255, 125))).is_err() {
+                    let _ = apply_blur(&window, Some((255, 255, 255, 125)));
+                }
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![capture_screen, send_to_gemini])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
