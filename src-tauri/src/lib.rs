@@ -1,6 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
 use screenshots::Screen;
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 
 #[cfg(target_os = "macos")]
 use core_foundation::data::CFData;
@@ -425,12 +426,11 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|app| {
-            let window = app.get_webview_window("main").unwrap();
-
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::{apply_blur, apply_acrylic};
 
+                let window = app.get_webview_window("main").unwrap();
                 // Try to apply acrylic effect (Windows 10/11)
                 // If it fails, fall back to blur
                 if apply_acrylic(&window, Some((255, 255, 255, 125))).is_err() {
