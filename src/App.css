@@ -650,89 +650,6 @@ body {
   font-weight: 400;
 }
 
-/* Results Container */
-.results-container {
-  width: var(--frame-width);
-  max-height: 400px;
-  margin-top: 8px;
-  overflow-y: auto;
-
-  background: rgba(255, 255, 255, 0.72);
-
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
-
-  padding: 8px;
-  scrollbar-gutter: stable;
-  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
-}
-
-.results-container::-webkit-scrollbar {
-  width: 6px;
-}
-
-.results-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.results-container::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 3px;
-}
-
-.results-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-/* Result Items */
-.result-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  gap: 16px;
-  border-radius: 10px;
-  cursor: pointer;
-  /* Transitions removed to disable animations */
-  user-select: none;
-}
-
-.result-item:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.result-item.selected {
-  background: rgba(0, 120, 250, 0.15);
-}
-
-.result-icon {
-  font-size: 32px;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.result-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.result-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: rgba(0, 0, 0, 0.87);
-  letter-spacing: -0.01em;
-}
-
-.result-subtitle {
-  font-size: 13px;
-  font-weight: 400;
-  color: rgba(0, 0, 0, 0.5);
-}
 
 /* Dark Mode */
 @media (prefers-color-scheme: dark) {
@@ -814,36 +731,6 @@ body {
     background: rgba(255, 255, 255, 0.1);
     border-color: rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.92);
-  }
-
-  .results-container {
-    background: rgba(30, 30, 35, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-  }
-
-  .result-item:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .result-item.selected {
-    background: rgba(10, 132, 255, 0.25);
-  }
-
-  .result-title {
-    color: rgba(255, 255, 255, 0.92);
-  }
-
-  .result-subtitle {
-    color: rgba(255, 255, 255, 0.5);
-  }
-
-  .results-container::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .results-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
   }
 
   .source-pill {

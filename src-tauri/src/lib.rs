@@ -1,6 +1,8 @@
 use base64::{engine::general_purpose, Engine as _};
 use screenshots::Screen;
 use serde::{Deserialize, Serialize};
+
+#[cfg(target_os = "windows")]
 use tauri::Manager;
 
 #[cfg(target_os = "macos")]
@@ -33,7 +35,7 @@ fn capture_screen_inner(_window: &tauri::Window) -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         match capture_screen_without_overlay_windows(_window) {
-            Ok(encoded) => return Ok(encoded),
+            Ok(png_bytes) => return Ok(general_purpose::STANDARD.encode(png_bytes)),
             Err(err) => {
                 eprintln!("Falling back to regular capture: {}", err);
             }
@@ -124,7 +126,7 @@ fn capture_screen_without_overlay_mac(window: &tauri::Window) -> Result<Vec<u8>,
 }
 
 #[cfg(target_os = "windows")]
-fn capture_screen_without_overlay_windows(window: &tauri::Window) -> Result<String, String> {
+fn capture_screen_without_overlay_windows(window: &tauri::Window) -> Result<Vec<u8>, String> {
     use std::{thread, time::Duration};
 
     let was_visible = window
@@ -135,8 +137,8 @@ fn capture_screen_without_overlay_windows(window: &tauri::Window) -> Result<Stri
         window
             .hide()
             .map_err(|e| format!("Failed to hide window before capture: {}", e))?;
-        // Give the compositor time to remove the window from the frame buffer.
-        thread::sleep(Duration::from_millis(120));
+        // Reduced delay for better UX - modern compositors are fast
+        thread::sleep(Duration::from_millis(80));
     }
 
     let capture_result = capture_full_display_png();
@@ -145,8 +147,8 @@ fn capture_screen_without_overlay_windows(window: &tauri::Window) -> Result<Stri
         if let Err(err) = window.show() {
             eprintln!("Failed to restore window visibility after capture: {}", err);
         } else {
-            // Allow the window to be redrawn before restoring focus.
-            thread::sleep(Duration::from_millis(50));
+            // Reduced delay - window redraws quickly on modern systems
+            thread::sleep(Duration::from_millis(30));
         }
 
         if let Err(err) = window.set_focus() {
@@ -154,7 +156,7 @@ fn capture_screen_without_overlay_windows(window: &tauri::Window) -> Result<Stri
         }
     }
 
-    capture_result.map(|png_bytes| general_purpose::STANDARD.encode(png_bytes))
+    capture_result
 }
 
 #[derive(Serialize, Deserialize)]
@@ -425,14 +427,19 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::{apply_blur, apply_acrylic};
 
-                let window = app.get_webview_window("main").unwrap();
+                let window = _app.get_webview_window("main").unwrap();
+                // Apply native Windows blur effect for consistency with macOS
+                // Note: This provides OS-level blur behind the window
+                // CSS backdrop-filter adds additional blur within the window
+                // Both work together for the glassmorphic effect
+
                 // Try to apply acrylic effect (Windows 10/11)
-                // If it fails, fall back to blur
+                // If it fails, fall back to basic blur (Windows 7/8/10)
                 if apply_acrylic(&window, Some((255, 255, 255, 125))).is_err() {
                     let _ = apply_blur(&window, Some((255, 255, 255, 125)));
                 }
