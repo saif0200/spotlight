@@ -1,13 +1,35 @@
 import type { Components } from "react-markdown";
 import type { HTMLAttributes, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import rehypeSanitize from "rehype-sanitize";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
+import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
+import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
+import json from "react-syntax-highlighter/dist/esm/languages/prism/json";
+import bash from "react-syntax-highlighter/dist/esm/languages/prism/bash";
+import python from "react-syntax-highlighter/dist/esm/languages/prism/python";
+import css from "react-syntax-highlighter/dist/esm/languages/prism/css";
+import markup from "react-syntax-highlighter/dist/esm/languages/prism/markup";
+import type { PluggableList } from "unified";
+
+SyntaxHighlighter.registerLanguage("tsx", tsx);
+SyntaxHighlighter.registerLanguage("typescript", typescript);
+SyntaxHighlighter.registerLanguage("javascript", javascript);
+SyntaxHighlighter.registerLanguage("json", json);
+SyntaxHighlighter.registerLanguage("bash", bash);
+SyntaxHighlighter.registerLanguage("python", python);
+SyntaxHighlighter.registerLanguage("css", css);
+SyntaxHighlighter.registerLanguage("html", markup);
+SyntaxHighlighter.registerLanguage("markup", markup);
+
+const baseRemarkPlugins = [remarkBreaks, remarkGfm, remarkMath];
+const baseRehypePlugins: PluggableList = [rehypeSanitize];
 
 interface MessageRendererProps {
   content: string;
@@ -72,13 +94,54 @@ const markdownComponents: Components = {
 };
 
 const MessageRenderer = ({ content }: MessageRendererProps) => {
+  const [mathPlugins, setMathPlugins] = useState<PluggableList | null>(null);
+  const [isMathLoading, setIsMathLoading] = useState(false);
+  const hasMath = /\$\$|\\\(|\\\[|\\begin\{.*?\}/.test(content);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasMath) {
+      setMathPlugins(null);
+      setIsMathLoading(false);
+      return;
+    }
+
+    setIsMathLoading(true);
+
+    (async () => {
+      const [{ default: rehypeKatex }] = await Promise.all([
+        import("rehype-katex"),
+        import("katex/dist/katex.min.css"),
+      ]);
+
+      if (!cancelled) {
+        setMathPlugins([[rehypeKatex, { throwOnError: false, output: "html" }]]);
+        setIsMathLoading(false);
+      }
+    })().catch((error) => {
+      console.error("Failed to load math rendering pipeline:", error);
+      if (!cancelled) {
+        setMathPlugins(null);
+        setIsMathLoading(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasMath]);
+
+  if (isMathLoading) {
+    return <span className="message-renderer-fallback">Rendering math…</span>;
+  }
+
+  const rehypePlugins = mathPlugins ? [...baseRehypePlugins, ...mathPlugins] : baseRehypePlugins;
+
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkBreaks, remarkGfm, remarkMath]}
-      rehypePlugins={[
-        rehypeSanitize,
-        [rehypeKatex, { throwOnError: false, output: "html" }],
-      ]}
+      remarkPlugins={baseRemarkPlugins}
+      rehypePlugins={rehypePlugins}
       components={markdownComponents}
     >
       {content}

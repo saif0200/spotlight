@@ -390,6 +390,11 @@ body {
   pointer-events: none;
 }
 
+.message-renderer-fallback {
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
 @keyframes shimmer-text {
   0% {
     background-position: -150% 0;

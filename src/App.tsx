@@ -1,12 +1,10 @@
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, useRef, memo, useCallback, Suspense, lazy } from "react";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { Store } from "@tauri-apps/plugin-store";
 import { platform } from "@tauri-apps/plugin-os";
 import "./App.css";
-import "katex/dist/katex.min.css";
-import MessageRenderer from "./components/MessageRenderer";
 
 interface SourceInfo {
   title: string;
@@ -39,16 +37,22 @@ const WINDOW_SIZES = {
   COLLAPSED: { width: 700, height: 130 },
 } as const;
 
+const WINDOWS_HEIGHT_ADJUSTMENT = 50;
+
 const TIMEOUTS = {
   INPUT_FOCUS: 100,
   TOGGLE_DEBOUNCE: 300,
 } as const;
 
+const MessageRenderer = lazy(() => import("./components/MessageRenderer"));
+
 // Memoized chat message component for performance
 const ChatMessage = memo(({ msg, idx }: { msg: Message; idx: number }) => (
   <div key={idx} className={`chat-message ${msg.role}`}>
     <div className="message-content">
-      <MessageRenderer content={msg.content} />
+      <Suspense fallback={<span className="message-renderer-fallback">Loading message…</span>}>
+        <MessageRenderer content={msg.content} />
+      </Suspense>
     </div>
     {msg.sources && msg.sources.length > 0 && (
       <div className="message-sources">
@@ -86,15 +90,49 @@ function App() {
   const isTogglingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<Message[]>([]);
+  const isWindowsRef = useRef(false);
+  const isExpandedRef = useRef(isExpanded);
+
+  const adjustWindowSize = useCallback(
+    async (expanded: boolean) => {
+      const baseSize = expanded ? WINDOW_SIZES.EXPANDED : WINDOW_SIZES.COLLAPSED;
+      const heightAdjustment = isWindowsRef.current ? WINDOWS_HEIGHT_ADJUSTMENT : 0;
+
+      try {
+        const appWindow = getCurrentWindow();
+        await appWindow.setSize(
+          new LogicalSize(baseSize.width, baseSize.height + heightAdjustment),
+        );
+      } catch (error) {
+        console.error("Failed to adjust window size:", error);
+      }
+    },
+    [],
+  );
 
   // Detect platform
   useEffect(() => {
     const detectPlatform = async () => {
       const platformName = await platform();
-      setIsWindows(platformName === "windows");
+      const isWin = platformName === "windows";
+      setIsWindows(isWin);
+      isWindowsRef.current = isWin;
+
+      if (isWin) {
+        await adjustWindowSize(isExpandedRef.current);
+      }
     };
-    detectPlatform();
-  }, []);
+
+    void detectPlatform();
+  }, [adjustWindowSize]);
+
+  useEffect(() => {
+    isWindowsRef.current = isWindows;
+  }, [isWindows]);
+
+  useEffect(() => {
+    isExpandedRef.current = isExpanded;
+  }, [isExpanded]);
 
   // Load API key from secure store
   useEffect(() => {
@@ -144,10 +182,10 @@ function App() {
               const hasHistory = chatHistoryRef.current.length > 0;
               if (hasHistory) {
                 setIsExpanded(true);
-                await appWindow.setSize(new LogicalSize(WINDOW_SIZES.EXPANDED.width, WINDOW_SIZES.EXPANDED.height));
+                await adjustWindowSize(true);
               } else {
                 setIsExpanded(false);
-                await appWindow.setSize(new LogicalSize(WINDOW_SIZES.COLLAPSED.width, WINDOW_SIZES.COLLAPSED.height));
+                await adjustWindowSize(false);
               }
               await appWindow.show();
               await appWindow.setFocus();
@@ -175,7 +213,7 @@ function App() {
 
     // Note: No cleanup function - global shortcuts should persist for app lifetime
     // React.StrictMode causes mount/unmount cycles in dev that would break the shortcut
-  }, []);
+  }, [adjustWindowSize]);
 
   useEffect(() => {
     // Scroll to bottom when chat history updates
@@ -223,7 +261,7 @@ function App() {
       // Expand window to show the error message
       if (!isExpanded) {
         setIsExpanded(true);
-        await getCurrentWindow().setSize(new LogicalSize(WINDOW_SIZES.EXPANDED.width, WINDOW_SIZES.EXPANDED.height));
+        await adjustWindowSize(true);
       }
 
       return;
@@ -239,7 +277,7 @@ function App() {
     // Expand if not already
     if (!isExpanded) {
       setIsExpanded(true);
-      await getCurrentWindow().setSize(new LogicalSize(WINDOW_SIZES.EXPANDED.width, WINDOW_SIZES.EXPANDED.height));
+      await adjustWindowSize(true);
     }
 
     try {
@@ -313,7 +351,7 @@ function App() {
       }
       // Collapse and reset before hiding
       setIsExpanded(false);
-      await getCurrentWindow().setSize(new LogicalSize(WINDOW_SIZES.COLLAPSED.width, WINDOW_SIZES.COLLAPSED.height));
+      await adjustWindowSize(false);
       setSearchQuery("");
       setChatHistory([]);
       await getCurrentWindow().hide();
