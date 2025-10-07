@@ -373,7 +373,7 @@ function App() {
           ref={inputRef}
           type="text"
           className="search-input"
-          placeholder="Ask Gemini..."
+          placeholder="Ask Spotlight..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           autoFocus
