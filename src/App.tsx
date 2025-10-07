@@ -3,6 +3,7 @@ import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { Store } from "@tauri-apps/plugin-store";
+import { platform } from "@tauri-apps/plugin-os";
 import "./App.css";
 import "katex/dist/katex.min.css";
 import MessageRenderer from "./components/MessageRenderer";
@@ -80,10 +81,20 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [isWindows, setIsWindows] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isTogglingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const chatHistoryRef = useRef<Message[]>([]);
+
+  // Detect platform
+  useEffect(() => {
+    const detectPlatform = async () => {
+      const platformName = await platform();
+      setIsWindows(platformName === "windows");
+    };
+    detectPlatform();
+  }, []);
 
   // Load API key from secure store
   useEffect(() => {
@@ -310,7 +321,7 @@ function App() {
   };
 
   return (
-    <div className="spotlight-container" onKeyDown={handleKeyDown} tabIndex={-1}>
+    <div className={`spotlight-container ${isWindows ? 'windows' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1}>
       <div className={`content-area ${isExpanded ? "expanded" : ""}`}>
         <div className="chat-container" ref={chatContainerRef} role="log" aria-live="polite" aria-label="Chat conversation">
           {chatHistory.map((msg, idx) => (

@@ -50,6 +50,11 @@ body {
   background: transparent;
 }
 
+/* Windows-specific: Extra bottom padding to prevent taskbar clipping */
+.spotlight-container.windows {
+  padding: var(--window-padding) var(--window-padding) calc(var(--window-padding) + 80px) var(--window-padding);
+}
+
 .content-area {
   width: var(--frame-width);
   height: 0;
