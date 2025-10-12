@@ -428,6 +428,8 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .setup(|_app| {
+            #[cfg(desktop)]
+            _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
             #[cfg(target_os = "windows")]
             {
                 use window_vibrancy::{apply_blur, apply_acrylic};

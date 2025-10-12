@@ -59,13 +59,16 @@ body {
   width: var(--frame-width);
   height: 0;
   background: transparent;
-  opacity: 0;
-  transform: scale(0.95);
   overflow: hidden;
   margin-bottom: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
+
+  /* Initial animation state */
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  filter: blur(2px);
 }
 
 .content-area.expanded {
@@ -76,9 +79,12 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
   margin-bottom: 8px;
-  opacity: 1;
-  transform: scale(1);
   padding: 12px;
+}
+
+.content-area.expanded.animate-in {
+  /* Animation that plays when expanded and animate-in class is added */
+  animation: smoothEntrance 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.05s forwards;
 }
 
 /* Fallback for browsers/platforms without backdrop-filter support */
@@ -452,6 +458,16 @@ body {
   align-items: center;
   margin-bottom: 8px;
   padding: 0;
+
+  /* Initial state - visible but ready for animation */
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  filter: blur(2px);
+}
+
+.controls-row.animate-in {
+  /* Animation that plays when class is added with staggered delay */
+  animation: smoothEntrance 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s forwards;
 }
 
 .controls-row > div:first-child {
@@ -626,7 +642,37 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
 
-  /* Transitions removed to disable animations */
+  /* Initial state - visible but ready for animation */
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+  filter: blur(2px);
+}
+
+.liquid-glass-box.animate-in {
+  /* Animation that plays when class is added */
+  animation: smoothEntrance 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes smoothEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+/* Animation restart trick - removing and adding the same class triggers re-animation */
+@keyframes none {
+  from, to {
+    opacity: inherit;
+    transform: inherit;
+    filter: inherit;
+  }
 }
 
 /* Fallback for browsers/platforms without backdrop-filter support */
@@ -670,6 +716,10 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
+  .content-area.expanded.animate-in {
+    background: rgba(30, 30, 35, 0.85);
+  }
+
   .liquid-glass-box {
     background: rgba(30, 30, 35, 0.85);
     backdrop-filter: blur(20px) saturate(180%);
@@ -677,6 +727,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.12);
   }
 
+  
   /* Dark mode fallback for browsers/platforms without backdrop-filter support */
   @supports not (backdrop-filter: blur(20px)) {
     .content-area.expanded,

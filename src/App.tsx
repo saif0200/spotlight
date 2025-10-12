@@ -4,6 +4,8 @@ import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { Store } from "@tauri-apps/plugin-store";
 import { platform } from "@tauri-apps/plugin-os";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import "./App.css";
 
 interface SourceInfo {
@@ -86,6 +88,7 @@ function App() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [isWindows, setIsWindows] = useState(false);
+  const [shouldAnimate, setShouldAnimate] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isTogglingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -134,6 +137,7 @@ function App() {
     isExpandedRef.current = isExpanded;
   }, [isExpanded]);
 
+  
   // Load API key from secure store
   useEffect(() => {
     const loadApiKey = async () => {
@@ -149,6 +153,33 @@ function App() {
       }
     };
     loadApiKey();
+  }, []);
+
+  // Check for updates on app startup
+  useEffect(() => {
+    const checkForUpdates = async () => {
+      try {
+        console.log("Checking for updates...");
+        const update = await check();
+        if (update?.available) {
+          console.log(`Update available: ${update.version}`);
+          const yes = confirm(
+            `Update to version ${update.version} is available. Install now?`
+          );
+          if (yes) {
+            console.log("Downloading update...");
+            await update.downloadAndInstall();
+            console.log("Update installed. Relaunching app...");
+            await relaunch();
+          }
+        } else {
+          console.log("App is up to date");
+        }
+      } catch (error) {
+        console.error("Failed to check for updates:", error);
+      }
+    };
+    checkForUpdates();
   }, []);
 
   useEffect(() => {
@@ -175,7 +206,8 @@ function App() {
             console.log("Window visible:", isVisible);
 
             if (isVisible) {
-              // Hide window without resetting state
+              // Hide window and reset animation
+              setShouldAnimate(false);
               await appWindow.hide();
             } else {
               // Show in expanded state if there's chat history
@@ -189,7 +221,13 @@ function App() {
               }
               await appWindow.show();
               await appWindow.setFocus();
-              setTimeout(() => inputRef.current?.focus(), TIMEOUTS.INPUT_FOCUS);
+
+              // Trigger animation by briefly removing and adding the class
+              setShouldAnimate(false);
+              setTimeout(() => {
+                setShouldAnimate(true);
+                setTimeout(() => inputRef.current?.focus(), TIMEOUTS.INPUT_FOCUS);
+              }, 10);
             }
           } finally {
             // Reset the flag after a short delay
@@ -354,13 +392,14 @@ function App() {
       await adjustWindowSize(false);
       setSearchQuery("");
       setChatHistory([]);
+      setShouldAnimate(false);
       await getCurrentWindow().hide();
     }
   };
 
   return (
     <div className={`spotlight-container ${isWindows ? 'windows' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1}>
-      <div className={`content-area ${isExpanded ? "expanded" : ""}`}>
+      <div className={`content-area ${isExpanded ? "expanded" : ""} ${shouldAnimate ? 'animate-in' : ''}`}>
         <div className="chat-container" ref={chatContainerRef} role="log" aria-live="polite" aria-label="Chat conversation">
           {chatHistory.map((msg, idx) => (
             <ChatMessage key={idx} msg={msg} idx={idx} />
@@ -375,7 +414,7 @@ function App() {
         </div>
       </div>
 
-      <div className="controls-row">
+      <div className={`controls-row ${shouldAnimate ? 'animate-in' : ''}`}>
         <div className="controls-container">
           <label className="screen-capture-toggle">
             <input
@@ -417,7 +456,7 @@ function App() {
         )}
       </div>
 
-      <div className="liquid-glass-box">
+      <div className={`liquid-glass-box ${shouldAnimate ? 'animate-in' : ''}`}>
         <input
           ref={inputRef}
           type="text"
