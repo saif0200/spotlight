@@ -1,9 +1,9 @@
 use base64::{engine::general_purpose, Engine as _};
 use screenshots::Screen;
 use serde::{Deserialize, Serialize};
-
-#[cfg(target_os = "windows")]
-use tauri::Manager;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 
 #[cfg(target_os = "macos")]
 use core_foundation::data::CFData;
@@ -12,13 +12,45 @@ use core_graphics::display::CGDisplay;
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 
+#[cfg(target_os = "macos")]
+use tauri::ActivationPolicy;
+
 // Constants
 const UNLIMITED_THINKING_BUDGET: i32 = -1;
-const GEMINI_API_ENDPOINT: &str = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+const GEMINI_API_ENDPOINT: &str =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+const MAIN_WINDOW_LABEL: &str = "main";
+const TRAY_ICON_ID: &str = "spotlight-tray";
+const MENU_ITEM_SHOW: &str = "tray-show";
+const MENU_ITEM_HIDE: &str = "tray-hide";
+const MENU_ITEM_QUIT: &str = "tray-quit";
+const TRAY_TOOLTIP: &str = "Spotlight";
+
+#[derive(Clone)]
+struct TrayMenuState {
+    show_item: MenuItem<tauri::Wry>,
+    hide_item: MenuItem<tauri::Wry>,
+}
+
+impl TrayMenuState {
+    fn set_visibility(&self, is_visible: bool) {
+        if let Err(err) = self.show_item.set_enabled(!is_visible) {
+            eprintln!("Failed to update Show menu item: {err}");
+        }
+        if let Err(err) = self.hide_item.set_enabled(is_visible) {
+            eprintln!("Failed to update Hide menu item: {err}");
+        }
+    }
+}
 
 #[tauri::command]
 async fn capture_screen(window: tauri::Window) -> Result<String, String> {
     capture_screen_inner(&window)
+}
+
+#[tauri::command]
+fn sync_tray_visibility(state: State<'_, TrayMenuState>, visible: bool) {
+    state.set_visibility(visible);
 }
 
 fn capture_screen_inner(_window: &tauri::Window) -> Result<String, String> {
@@ -421,35 +453,132 @@ async fn send_to_gemini(
     serde_json::to_string(&result).map_err(|e| format!("Failed to serialize result: {}", e))
 }
 
+fn show_main_window(app: &AppHandle) {
+    if let Err(err) = app.emit("spotlight-show", ()) {
+        eprintln!("Failed to emit show event: {err}");
+    }
+    if let Some(state) = app.try_state::<TrayMenuState>() {
+        state.set_visibility(true);
+    }
+}
+
+fn hide_main_window(app: &AppHandle) {
+    if let Err(err) = app.emit("spotlight-hide", ()) {
+        eprintln!("Failed to emit hide event: {err}");
+    }
+    if let Some(state) = app.try_state::<TrayMenuState>() {
+        state.set_visibility(false);
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .setup(|_app| {
+        .setup(|app| {
             #[cfg(desktop)]
-            _app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            app.handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())?;
+
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(ActivationPolicy::Accessory);
+
+            let handle = app.handle();
+
+            let tray_menu = {
+                let menu = Menu::new(handle)?;
+                let show_item = MenuItem::with_id(
+                    handle,
+                    MENU_ITEM_SHOW,
+                    "Show Spotlight",
+                    true,
+                    None::<&str>,
+                )?;
+                let hide_item = MenuItem::with_id(
+                    handle,
+                    MENU_ITEM_HIDE,
+                    "Hide Spotlight",
+                    true,
+                    None::<&str>,
+                )?;
+                let quit_item = MenuItem::with_id(
+                    handle,
+                    MENU_ITEM_QUIT,
+                    "Quit Spotlight",
+                    true,
+                    None::<&str>,
+                )?;
+                menu.append(&show_item)?;
+                menu.append(&hide_item)?;
+                menu.append(&PredefinedMenuItem::separator(handle)?)?;
+                menu.append(&quit_item)?;
+                let tray_state = TrayMenuState {
+                    show_item: show_item.clone(),
+                    hide_item: hide_item.clone(),
+                };
+                tray_state.set_visibility(false);
+                app.manage(tray_state);
+                menu
+            };
+
+            let mut tray_builder = TrayIconBuilder::with_id(TRAY_ICON_ID)
+                .tooltip(TRAY_TOOLTIP)
+                .menu(&tray_menu)
+                .show_menu_on_left_click(true)
+                .on_menu_event(|app_handle, event| match event.id().as_ref() {
+                    MENU_ITEM_SHOW => show_main_window(app_handle),
+                    MENU_ITEM_HIDE => hide_main_window(app_handle),
+                    MENU_ITEM_QUIT => app_handle.exit(0),
+                    _ => {}
+                });
+
+            if let Some(default_icon) = app.default_window_icon().cloned() {
+                tray_builder = tray_builder.icon(default_icon);
+            }
+
+            #[cfg(target_os = "macos")]
+            {
+                tray_builder = tray_builder.icon_as_template(true);
+            }
+
+            let tray_icon = tray_builder.build(app)?;
+            app.manage(tray_icon);
+
+            if let Some(main_window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+                let _ = main_window.hide();
+                let window_for_event = main_window.clone();
+                let app_handle_for_event = handle.clone();
+                main_window.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Err(err) = window_for_event.hide() {
+                            eprintln!("Failed to hide window on close request: {err}");
+                        }
+                        hide_main_window(&app_handle_for_event);
+                    }
+                });
+            }
+
             #[cfg(target_os = "windows")]
             {
-                use window_vibrancy::{apply_blur, apply_acrylic};
+                use window_vibrancy::{apply_acrylic, apply_blur};
 
-                let window = _app.get_webview_window("main").unwrap();
-                // Apply native Windows blur effect for consistency with macOS
-                // Note: This provides OS-level blur behind the window
-                // CSS backdrop-filter adds additional blur within the window
-                // Both work together for the glassmorphic effect
-
-                // Try to apply acrylic effect (Windows 10/11)
-                // If it fails, fall back to basic blur (Windows 7/8/10)
-                if apply_acrylic(&window, Some((255, 255, 255, 125))).is_err() {
-                    let _ = apply_blur(&window, Some((255, 255, 255, 125)));
+                if let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) {
+                    if apply_acrylic(&window, Some((255, 255, 255, 125))).is_err() {
+                        let _ = apply_blur(&window, Some((255, 255, 255, 125)));
+                    }
                 }
             }
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_screen, send_to_gemini])
+        .invoke_handler(tauri::generate_handler![
+            capture_screen,
+            send_to_gemini,
+            sync_tray_visibility
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

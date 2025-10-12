@@ -6,6 +6,7 @@ import { Store } from "@tauri-apps/plugin-store";
 import { platform } from "@tauri-apps/plugin-os";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./App.css";
 
 interface SourceInfo {
@@ -45,6 +46,10 @@ const TIMEOUTS = {
   INPUT_FOCUS: 100,
   TOGGLE_DEBOUNCE: 300,
 } as const;
+
+type AppWindow = ReturnType<typeof getCurrentWindow>;
+
+const GLOBAL_SHORTCUT = "CommandOrControl+K";
 
 const MessageRenderer = lazy(() => import("./components/MessageRenderer"));
 
@@ -182,59 +187,95 @@ function App() {
     checkForUpdates();
   }, []);
 
+  const runWithToggleGuard = useCallback(async (operation: (appWindow: AppWindow) => Promise<void>) => {
+    if (isTogglingRef.current) {
+      console.log("Already toggling, ignoring...");
+      return;
+    }
+
+    isTogglingRef.current = true;
+    const appWindow = getCurrentWindow();
+    try {
+      await operation(appWindow);
+    } finally {
+      setTimeout(() => {
+        isTogglingRef.current = false;
+      }, TIMEOUTS.TOGGLE_DEBOUNCE);
+    }
+  }, []);
+
+  const ensureWindowShown = useCallback(
+    async (appWindow: AppWindow) => {
+      const isVisible = await appWindow.isVisible();
+      if (isVisible) {
+        await appWindow.setFocus();
+        return;
+      }
+
+      const hasHistory = chatHistoryRef.current.length > 0;
+      if (hasHistory) {
+        setIsExpanded(true);
+        await adjustWindowSize(true);
+      } else {
+        setIsExpanded(false);
+        await adjustWindowSize(false);
+      }
+
+      await appWindow.show();
+      await appWindow.setFocus();
+
+      setShouldAnimate(false);
+      setTimeout(() => {
+        setShouldAnimate(true);
+        setTimeout(() => inputRef.current?.focus(), TIMEOUTS.INPUT_FOCUS);
+      }, 10);
+
+      try {
+        await invoke("sync_tray_visibility", { visible: true });
+      } catch (error) {
+        console.error("Failed to sync tray visibility (show)", error);
+      }
+    },
+    [adjustWindowSize],
+  );
+
+  const ensureWindowHidden = useCallback(async (appWindow: AppWindow) => {
+    const isVisible = await appWindow.isVisible();
+    if (!isVisible) {
+      return;
+    }
+
+    setShouldAnimate(false);
+    await appWindow.hide();
+    try {
+      await invoke("sync_tray_visibility", { visible: false });
+    } catch (error) {
+      console.error("Failed to sync tray visibility (hide)", error);
+    }
+  }, []);
+
+  const showWindow = useCallback(() => runWithToggleGuard(ensureWindowShown), [ensureWindowShown, runWithToggleGuard]);
+
+  const hideWindow = useCallback(() => runWithToggleGuard(ensureWindowHidden), [ensureWindowHidden, runWithToggleGuard]);
+
+  const toggleWindow = useCallback(async () => {
+    await runWithToggleGuard(async (appWindow) => {
+      if (await appWindow.isVisible()) {
+        await ensureWindowHidden(appWindow);
+      } else {
+        await ensureWindowShown(appWindow);
+      }
+    });
+  }, [ensureWindowHidden, ensureWindowShown, runWithToggleGuard]);
+
   useEffect(() => {
     const setupShortcut = async () => {
       try {
-        const appWindow = getCurrentWindow();
-
         console.log("🔧 Setting up global shortcut...");
 
-        // Register Cmd+K (macOS) / Ctrl+K (others)
-        await register("CommandOrControl+K", async () => {
+        await register(GLOBAL_SHORTCUT, () => {
           console.log("⌨️ Global shortcut triggered!");
-          // Prevent multiple rapid triggers
-          if (isTogglingRef.current) {
-            console.log("Already toggling, ignoring...");
-            return;
-          }
-
-          isTogglingRef.current = true;
-          console.log("Shortcut triggered!");
-
-          try {
-            const isVisible = await appWindow.isVisible();
-            console.log("Window visible:", isVisible);
-
-            if (isVisible) {
-              // Hide window and reset animation
-              setShouldAnimate(false);
-              await appWindow.hide();
-            } else {
-              // Show in expanded state if there's chat history
-              const hasHistory = chatHistoryRef.current.length > 0;
-              if (hasHistory) {
-                setIsExpanded(true);
-                await adjustWindowSize(true);
-              } else {
-                setIsExpanded(false);
-                await adjustWindowSize(false);
-              }
-              await appWindow.show();
-              await appWindow.setFocus();
-
-              // Trigger animation by briefly removing and adding the class
-              setShouldAnimate(false);
-              setTimeout(() => {
-                setShouldAnimate(true);
-                setTimeout(() => inputRef.current?.focus(), TIMEOUTS.INPUT_FOCUS);
-              }, 10);
-            }
-          } finally {
-            // Reset the flag after a short delay
-            setTimeout(() => {
-              isTogglingRef.current = false;
-            }, TIMEOUTS.TOGGLE_DEBOUNCE);
-          }
+          void toggleWindow();
         });
 
         console.log("✅ Global shortcut (Cmd+K / Ctrl+K) registered successfully!");
@@ -247,11 +288,29 @@ function App() {
       }
     };
 
-    setupShortcut();
+    void setupShortcut();
+  }, [toggleWindow]);
 
-    // Note: No cleanup function - global shortcuts should persist for app lifetime
-    // React.StrictMode causes mount/unmount cycles in dev that would break the shortcut
-  }, [adjustWindowSize]);
+  useEffect(() => {
+    let unlistenShow: UnlistenFn | undefined;
+    let unlistenHide: UnlistenFn | undefined;
+
+    const registerListeners = async () => {
+      unlistenShow = await listen("spotlight-show", () => {
+        void showWindow();
+      });
+      unlistenHide = await listen("spotlight-hide", () => {
+        void hideWindow();
+      });
+    };
+
+    void registerListeners();
+
+    return () => {
+      unlistenShow?.();
+      unlistenHide?.();
+    };
+  }, [hideWindow, showWindow]);
 
   useEffect(() => {
     // Scroll to bottom when chat history updates

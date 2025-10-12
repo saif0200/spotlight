@@ -21,7 +21,7 @@ tauri-build = { version = "2", features = [] }
 # Note: macos-private-api feature must be enabled here (not just in target-specific deps)
 # because tauri.conf.json has "macOSPrivateApi": true. Tauri only compiles the macOS-specific
 # code on macOS builds, so this won't affect Windows builds.
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
