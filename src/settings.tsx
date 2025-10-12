@@ -66,11 +66,21 @@ function SettingsApp() {
     }
   }, []);
 
-  const handleClose = useCallback(() => {
-    const window = getCurrentWindow();
-    window
-      .close()
-      .catch((error) => console.error("Failed to close settings window:", error));
+  const handleClose = useCallback(async () => {
+    console.log("Close button clicked, attempting to close settings window...");
+    try {
+      await invoke("close_api_settings_window");
+      console.log("Settings window closed successfully");
+    } catch (error) {
+      console.error("Failed to close settings window:", error);
+      // Fallback: try direct window close
+      try {
+        const window = getCurrentWindow();
+        await window.close();
+      } catch (fallbackError) {
+        console.error("Fallback close also failed:", fallbackError);
+      }
+    }
   }, []);
 
   const onSubmit = useCallback(
@@ -81,12 +91,34 @@ function SettingsApp() {
     [handleSave],
   );
 
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        void handleClose();
+      }
+    },
+    [handleClose],
+  );
+
   const disableSave = isBusy || apiKey.trim().length === 0;
 
   return (
     <div className="settings-window">
-      <form className="settings-card" onSubmit={onSubmit}>
-        <h3>API Key Settings</h3>
+      <form className="settings-card" onSubmit={onSubmit} onKeyDown={handleKeyDown}>
+        <div className="settings-header">
+          <div className="drag-handle" data-tauri-drag-region>
+            <h3>API Key Settings</h3>
+          </div>
+          <button
+            type="button"
+            className="close-button"
+            onClick={handleClose}
+            aria-label="Close settings"
+          >
+            ×
+          </button>
+        </div>
         <p>Enter your Gemini API key. It is stored securely on your device.</p>
         <input
           type="password"
@@ -111,9 +143,6 @@ function SettingsApp() {
             disabled={isBusy || apiKey.length === 0}
           >
             Clear
-          </button>
-          <button type="button" onClick={handleClose} disabled={isBusy}>
-            Close
           </button>
         </div>
       </form>

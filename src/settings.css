@@ -1,87 +1,177 @@
 :root {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color-scheme: dark;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #0b1120 0%, #030712 55%, #010409 100%);
-  color: #e2e8f0;
-  min-height: 100vh;
+  background: transparent;
+  color: rgba(0, 0, 0, 0.87);
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 .settings-window {
   width: 100%;
   height: 100%;
+  max-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: 20px;
   box-sizing: border-box;
+  background: transparent;
+  overflow: hidden;
 }
 
 .settings-card {
-  width: min(420px, 100%);
-  background: rgba(15, 23, 42, 0.85);
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 24px 50px rgba(2, 6, 23, 0.55);
-  backdrop-filter: blur(22px) saturate(135%);
-  padding: 28px 32px;
-  text-align: center;
+  width: min(480px, 100%);
+  max-height: 280px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  animation: smoothEntrance 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  overflow: hidden;
+}
+
+/* Fallback for browsers without backdrop-filter */
+@supports not (backdrop-filter: blur(20px)) {
+  .settings-card {
+    background: rgba(255, 255, 255, 0.95);
+  }
+}
+
+@keyframes smoothEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  margin-bottom: -4px;
+  gap: 12px;
+}
+
+.drag-handle {
+  flex: 1;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .settings-card h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 24px;
   font-weight: 600;
-  color: #f8fafc;
+  color: rgba(0, 0, 0, 0.87);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 32px;
+  line-height: 1;
+  color: rgba(0, 0, 0, 0.5);
+  cursor: pointer !important;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  font-weight: 300;
+  flex-shrink: 0;
+}
+
+.close-button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.87);
+}
+
+.close-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.close-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
 }
 
 .settings-card p {
   margin: 0;
   font-size: 14px;
-  color: rgba(226, 232, 240, 0.75);
-  line-height: 1.55;
+  color: rgba(0, 0, 0, 0.6);
+  line-height: 1.5;
 }
 
 .settings-card input {
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 12px 16px;
   font-size: 15px;
-  color: #f8fafc;
-  background: rgba(15, 23, 42, 0.9);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  color: rgba(0, 0, 0, 0.87);
+  background: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+  font-family: inherit;
+  outline: none;
 }
 
 .settings-card input::placeholder {
-  color: rgba(148, 163, 184, 0.6);
+  color: rgba(0, 0, 0, 0.35);
 }
 
 .settings-card input:focus {
-  outline: none;
-  border-color: rgba(94, 234, 212, 0.7);
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.25);
-  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(0, 120, 250, 0.5);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 3px rgba(0, 120, 250, 0.1);
 }
 
 .settings-card input:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .button-group {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .button-group button {
@@ -91,61 +181,166 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.2s ease;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  outline: none;
 }
 
 .button-group button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
-  box-shadow: none;
-  transform: none;
+  opacity: 0.4;
 }
 
 .button-group button[type="submit"] {
-  background: linear-gradient(135deg, #38bdf8, #2563eb);
-  color: #0b1120;
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.35);
+  background: rgba(0, 120, 250, 0.85);
+  color: white;
 }
 
 .button-group button[type="submit"]:hover:not(:disabled) {
+  background: rgba(0, 120, 250, 0.95);
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 4px 12px rgba(0, 120, 250, 0.3);
+}
+
+.button-group button[type="submit"]:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .button-group button[type="button"] {
-  background: rgba(30, 41, 59, 0.85);
-  color: #e2e8f0;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.5);
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.7);
 }
 
 .button-group button[type="button"]:hover:not(:disabled) {
-  background: rgba(51, 65, 85, 0.95);
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.87);
   transform: translateY(-1px);
+}
+
+.button-group button[type="button"]:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .status-message {
   font-size: 13px;
-  padding: 11px 14px;
+  padding: 10px 14px;
   border-radius: 10px;
-  background: rgba(30, 41, 59, 0.78);
-  color: rgba(226, 232, 240, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  line-height: 1.4;
 }
 
 .status-message.success {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: rgba(16, 185, 129, 0.45);
-  color: #bbf7d0;
+  background: rgba(52, 211, 153, 0.15);
+  border-color: rgba(52, 211, 153, 0.3);
+  color: rgba(6, 95, 70, 0.9);
 }
 
 .status-message.error {
-  background: rgba(248, 113, 113, 0.18);
-  border-color: rgba(248, 113, 113, 0.45);
-  color: #fecaca;
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: rgba(127, 29, 29, 0.9);
 }
 
 .status-message.info {
-  background: rgba(56, 189, 248, 0.18);
-  border-color: rgba(56, 189, 248, 0.45);
-  color: #bae6fd;
+  background: rgba(0, 120, 250, 0.15);
+  border-color: rgba(0, 120, 250, 0.3);
+  color: rgba(7, 89, 133, 0.9);
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  body {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .settings-card {
+    background: rgba(30, 30, 35, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  @supports not (backdrop-filter: blur(20px)) {
+    .settings-card {
+      background: rgba(30, 30, 35, 0.95);
+    }
+  }
+
+  .settings-card h3 {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .close-button {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .close-button:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .settings-card p {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .settings-card input {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .settings-card input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .settings-card input:focus {
+    border-color: rgba(10, 132, 255, 0.5);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+  }
+
+  .button-group button[type="submit"] {
+    background: rgba(10, 132, 255, 0.8);
+  }
+
+  .button-group button[type="submit"]:hover:not(:disabled) {
+    background: rgba(10, 132, 255, 0.9);
+    box-shadow: 0 4px 12px rgba(10, 132, 255, 0.3);
+  }
+
+  .button-group button[type="button"] {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .button-group button[type="button"]:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.95);
+  }
+
+  .status-message {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .status-message.success {
+    background: rgba(52, 211, 153, 0.15);
+    border-color: rgba(52, 211, 153, 0.3);
+    color: rgba(167, 243, 208, 0.95);
+  }
+
+  .status-message.error {
+    background: rgba(248, 113, 113, 0.15);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: rgba(254, 202, 202, 0.95);
+  }
+
+  .status-message.info {
+    background: rgba(10, 132, 255, 0.15);
+    border-color: rgba(10, 132, 255, 0.3);
+    color: rgba(186, 230, 253, 0.95);
+  }
 }

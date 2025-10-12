@@ -74,6 +74,15 @@ fn open_api_settings_window(app: AppHandle) -> Result<(), String> {
     open_settings_window(&app).map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn close_api_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+        window.close().map_err(|e| e.to_string())
+    } else {
+        Ok(())
+    }
+}
+
 fn capture_screen_inner(_window: &tauri::Window) -> Result<String, String> {
     #[cfg(target_os = "macos")]
     {
@@ -505,11 +514,11 @@ fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
         WebviewUrl::App("settings.html".into()),
     )
     .title("Spotlight Settings")
-    .inner_size(420.0, 360.0)
+    .inner_size(500.0, 320.0)
     .resizable(false)
     .visible(true)
-    .theme(Some(tauri::Theme::Dark))
-    .decorations(true)
+    .decorations(false)
+    .transparent(true)
     .center()
     .build()?;
 
@@ -732,6 +741,7 @@ pub fn run() {
             send_to_gemini,
             sync_tray_visibility,
             open_api_settings_window,
+            close_api_settings_window,
             get_api_key,
             set_api_key,
             clear_api_key
