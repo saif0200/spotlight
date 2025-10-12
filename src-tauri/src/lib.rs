@@ -1,9 +1,14 @@
 use base64::{engine::general_purpose, Engine as _};
 use screenshots::Screen;
 use serde::{Deserialize, Serialize};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use std::sync::Arc;
+
+use tauri::menu::{Menu, MenuBuilder, MenuItem, PredefinedMenuItem, SubmenuBuilder};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
+use tauri::{
+    AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+};
+use tauri_plugin_store::StoreBuilder;
 
 #[cfg(target_os = "macos")]
 use core_foundation::data::CFData;
@@ -24,7 +29,18 @@ const TRAY_ICON_ID: &str = "spotlight-tray";
 const MENU_ITEM_SHOW: &str = "tray-show";
 const MENU_ITEM_HIDE: &str = "tray-hide";
 const MENU_ITEM_QUIT: &str = "tray-quit";
+const MENU_ITEM_API_SETTINGS: &str = "menu-api-settings";
 const TRAY_TOOLTIP: &str = "Spotlight";
+const SETTINGS_WINDOW_LABEL: &str = "settings";
+const SETTINGS_STORE_PATH: &str = "settings.json";
+const SETTINGS_STORE_KEY: &str = "GEMINI_API_KEY";
+const API_KEY_UPDATED_EVENT: &str = "api-key-updated";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ApiKeyPayload {
+    api_key: Option<String>,
+}
 
 #[derive(Clone)]
 struct TrayMenuState {
@@ -51,6 +67,11 @@ async fn capture_screen(window: tauri::Window) -> Result<String, String> {
 #[tauri::command]
 fn sync_tray_visibility(state: State<'_, TrayMenuState>, visible: bool) {
     state.set_visibility(visible);
+}
+
+#[tauri::command]
+fn open_api_settings_window(app: AppHandle) -> Result<(), String> {
+    open_settings_window(&app).map_err(|e| e.to_string())
 }
 
 fn capture_screen_inner(_window: &tauri::Window) -> Result<String, String> {
@@ -471,9 +492,128 @@ fn hide_main_window(app: &AppHandle) {
     }
 }
 
+fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
+    if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
+        window.show()?;
+        window.set_focus()?;
+        return Ok(());
+    }
+
+    let settings_window = WebviewWindowBuilder::new(
+        app,
+        SETTINGS_WINDOW_LABEL,
+        WebviewUrl::App("settings.html".into()),
+    )
+    .title("Spotlight Settings")
+    .inner_size(420.0, 360.0)
+    .resizable(false)
+    .visible(true)
+    .theme(Some(tauri::Theme::Dark))
+    .decorations(true)
+    .center()
+    .build()?;
+
+    settings_window.set_focus()?;
+    Ok(())
+}
+
+fn settings_store(
+    app: &AppHandle,
+) -> Result<Arc<tauri_plugin_store::Store<tauri::Wry>>, tauri_plugin_store::Error> {
+    let store = StoreBuilder::new(app, SETTINGS_STORE_PATH).build()?;
+    // ensure cache reflects on-disk contents
+    if let Err(err) = store.reload() {
+        eprintln!("Failed to reload settings store: {err}");
+    }
+    Ok(store)
+}
+
+fn emit_api_key_update(app: &AppHandle, value: Option<String>) {
+    if let Err(err) = app.emit(API_KEY_UPDATED_EVENT, ApiKeyPayload { api_key: value }) {
+        eprintln!("Failed to emit API key update event: {err}");
+    }
+}
+
+#[tauri::command]
+fn get_api_key(app: AppHandle) -> Result<Option<String>, String> {
+    let store = settings_store(&app).map_err(|e| e.to_string())?;
+    let value = store
+        .get(SETTINGS_STORE_KEY)
+        .and_then(|json| json.as_str().map(|s| s.to_string()));
+    Ok(value)
+}
+
+#[tauri::command]
+fn set_api_key(app: AppHandle, api_key: String) -> Result<(), String> {
+    let store = settings_store(&app).map_err(|e| e.to_string())?;
+    store.set(SETTINGS_STORE_KEY, api_key.clone());
+    store.save().map_err(|e| e.to_string())?;
+    emit_api_key_update(&app, Some(api_key));
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_api_key(app: AppHandle) -> Result<(), String> {
+    let store = settings_store(&app).map_err(|e| e.to_string())?;
+    store.delete(SETTINGS_STORE_KEY);
+    store.save().map_err(|e| e.to_string())?;
+    emit_api_key_update(&app, None);
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .menu(|app_handle| {
+            let api_settings_item = MenuItem::with_id(
+                app_handle,
+                MENU_ITEM_API_SETTINGS,
+                "API Key Settings...",
+                true,
+                Some("CmdOrCtrl+,"),
+            )?;
+            #[cfg(target_os = "linux")]
+            let quit_item = MenuItem::with_id(
+                app_handle,
+                MENU_ITEM_QUIT,
+                "Quit Spotlight",
+                true,
+                Some("CmdOrCtrl+Q"),
+            )?;
+            #[cfg(not(target_os = "linux"))]
+            let quit_item = PredefinedMenuItem::quit(app_handle, Some("Quit Spotlight"))?;
+
+            let spotlight_menu = SubmenuBuilder::with_id(
+                app_handle,
+                "spotlight-app-menu",
+                "Spotlight",
+            )
+                .item(&api_settings_item)
+                .separator()
+                .item(&quit_item)
+                .build()?;
+
+            let edit_menu = SubmenuBuilder::new(app_handle, "Edit")
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            MenuBuilder::new(app_handle)
+                .item(&spotlight_menu)
+                .item(&edit_menu)
+                .build()
+        })
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            MENU_ITEM_API_SETTINGS => {
+                if let Err(err) = open_settings_window(app) {
+                    eprintln!("Failed to open settings window from menu: {err}");
+                }
+            }
+            MENU_ITEM_QUIT => app.exit(0),
+            _ => {}
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -503,6 +643,13 @@ pub fn run() {
                     true,
                     None::<&str>,
                 )?;
+                let settings_item = MenuItem::with_id(
+                    handle,
+                    MENU_ITEM_API_SETTINGS,
+                    "API Key Settings...",
+                    true,
+                    None::<&str>,
+                )?;
                 let quit_item = MenuItem::with_id(
                     handle,
                     MENU_ITEM_QUIT,
@@ -512,6 +659,7 @@ pub fn run() {
                 )?;
                 menu.append(&show_item)?;
                 menu.append(&hide_item)?;
+                menu.append(&settings_item)?;
                 menu.append(&PredefinedMenuItem::separator(handle)?)?;
                 menu.append(&quit_item)?;
                 let tray_state = TrayMenuState {
@@ -530,6 +678,11 @@ pub fn run() {
                 .on_menu_event(|app_handle, event| match event.id().as_ref() {
                     MENU_ITEM_SHOW => show_main_window(app_handle),
                     MENU_ITEM_HIDE => hide_main_window(app_handle),
+                    MENU_ITEM_API_SETTINGS => {
+                        if let Err(err) = open_settings_window(app_handle) {
+                            eprintln!("Failed to open settings window from tray: {err}");
+                        }
+                    }
                     MENU_ITEM_QUIT => app_handle.exit(0),
                     _ => {}
                 });
@@ -577,7 +730,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             capture_screen,
             send_to_gemini,
-            sync_tray_visibility
+            sync_tray_visibility,
+            open_api_settings_window,
+            get_api_key,
+            set_api_key,
+            clear_api_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

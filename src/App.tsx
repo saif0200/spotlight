@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, memo, useCallback, Suspense, lazy } from "
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
-import { Store } from "@tauri-apps/plugin-store";
 import { platform } from "@tauri-apps/plugin-os";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -52,6 +51,7 @@ type AppWindow = ReturnType<typeof getCurrentWindow>;
 const GLOBAL_SHORTCUT = "CommandOrControl+K";
 
 const MessageRenderer = lazy(() => import("./components/MessageRenderer"));
+const API_KEY_UPDATED_EVENT = "api-key-updated";
 
 // Memoized chat message component for performance
 const ChatMessage = memo(({ msg, idx }: { msg: Message; idx: number }) => (
@@ -89,8 +89,6 @@ function App() {
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [isWindows, setIsWindows] = useState(false);
   const [shouldAnimate, setShouldAnimate] = useState(false);
@@ -147,17 +145,15 @@ function App() {
   useEffect(() => {
     const loadApiKey = async () => {
       try {
-        const store = await Store.load("settings.json");
-        const storedKey = await store.get<string>('GEMINI_API_KEY') || "";
-        setApiKey(storedKey);
-        setApiKeyInput(storedKey);
+        const storedKey = await invoke<string | null>("get_api_key");
+        setApiKey(storedKey ?? "");
         console.log("API key loaded successfully");
       } catch (error) {
-        console.error("Failed to load API key from store:", error);
+        console.error("Failed to load API key from command:", error);
         // Continue without API key - user can set it later
       }
     };
-    loadApiKey();
+    void loadApiKey();
   }, []);
 
   // Check for updates on app startup
@@ -268,6 +264,14 @@ function App() {
     });
   }, [ensureWindowHidden, ensureWindowShown, runWithToggleGuard]);
 
+  const openSettingsWindow = useCallback(async () => {
+    try {
+      await invoke("open_api_settings_window");
+    } catch (error) {
+      console.error("Failed to open API settings window:", error);
+    }
+  }, []);
+
   useEffect(() => {
     const setupShortcut = async () => {
       try {
@@ -294,6 +298,7 @@ function App() {
   useEffect(() => {
     let unlistenShow: UnlistenFn | undefined;
     let unlistenHide: UnlistenFn | undefined;
+    let unlistenApiKey: UnlistenFn | undefined;
 
     const registerListeners = async () => {
       unlistenShow = await listen("spotlight-show", () => {
@@ -302,6 +307,10 @@ function App() {
       unlistenHide = await listen("spotlight-hide", () => {
         void hideWindow();
       });
+      unlistenApiKey = await listen<{ apiKey?: string }>(API_KEY_UPDATED_EVENT, (event) => {
+        const nextKey = event.payload?.apiKey ?? "";
+        setApiKey(nextKey);
+      });
     };
 
     void registerListeners();
@@ -309,6 +318,7 @@ function App() {
     return () => {
       unlistenShow?.();
       unlistenHide?.();
+      unlistenApiKey?.();
     };
   }, [hideWindow, showWindow]);
 
@@ -321,25 +331,6 @@ function App() {
     chatHistoryRef.current = chatHistory;
   }, [chatHistory]);
 
-  const saveApiKey = async () => {
-    if (apiKeyInput.trim()) {
-      const store = await Store.load("settings.json");
-      await store.set('GEMINI_API_KEY', apiKeyInput.trim());
-      await store.save();
-      setApiKey(apiKeyInput.trim());
-      setShowSettings(false);
-    }
-  };
-
-  const clearApiKey = async () => {
-    const store = await Store.load("settings.json");
-    await store.delete('GEMINI_API_KEY');
-    await store.save();
-    setApiKey("");
-    setApiKeyInput("");
-    setShowSettings(false);
-  };
-
   const sendMessage = async () => {
     if (!searchQuery.trim() || isLoading) return;
 
@@ -350,10 +341,12 @@ function App() {
         { role: "user", content: searchQuery },
         {
           role: "assistant",
-          content: "Please set your API key first. Click the ⚙️ settings button to add your Gemini API key.",
+          content:
+            "Please set your API key first. Use Spotlight > API Key Settings in the menu bar to add your Gemini API key. A settings window has been opened for you.",
         },
       ]);
       setSearchQuery("");
+      await openSettingsWindow();
 
       // Expand window to show the error message
       if (!isExpanded) {
@@ -441,11 +434,6 @@ function App() {
       e.preventDefault();
       await sendMessage();
     } else if (e.key === "Escape") {
-      // Close settings if open
-      if (showSettings) {
-        setShowSettings(false);
-        return;
-      }
       // Collapse and reset before hiding
       setIsExpanded(false);
       await adjustWindowSize(false);
@@ -503,16 +491,6 @@ function App() {
             <span>Extended Thinking</span>
           </label>
         </div>
-        {isExpanded && (
-          <button
-            className="settings-btn"
-            onClick={() => setShowSettings(true)}
-            title="API Key Settings"
-            aria-label="Open API key settings"
-          >
-            ⚙️
-          </button>
-        )}
       </div>
 
       <div className={`liquid-glass-box ${shouldAnimate ? 'animate-in' : ''}`}>
@@ -529,36 +507,6 @@ function App() {
           aria-describedby="search-description"
         />
       </div>
-
-      {showSettings && (
-        <div className="settings-modal-overlay" onClick={() => setShowSettings(false)}>
-          <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="api-key-setup">
-              <h3>API Key Settings</h3>
-              <p>
-                Enter your Gemini API key. It will be stored securely on your device.
-              </p>
-              <input
-                type="password"
-                placeholder="Enter API Key"
-                value={apiKeyInput}
-                onChange={(e) => setApiKeyInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveApiKey();
-                  if (e.key === 'Escape') setShowSettings(false);
-                }}
-                autoFocus
-                aria-label="API key input"
-              />
-              <div className="button-group">
-                <button onClick={saveApiKey} aria-label="Save API key">Save</button>
-                <button onClick={clearApiKey} aria-label="Clear API key">Clear</button>
-                <button onClick={() => setShowSettings(false)} aria-label="Cancel and close settings">Cancel</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
