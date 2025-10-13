@@ -1,0 +1,22 @@
+{
+  "default": null,
+  "permission": [
+    {
+      "identifier": "allow-spotlight-commands",
+      "description": "Allow Spotlight app commands",
+      "commands": {
+        "allow": [
+          "capture_screen",
+          "send_to_gemini",
+          "sync_tray_visibility",
+          "open_api_settings_window",
+          "close_api_settings_window",
+          "get_api_key",
+          "set_api_key",
+          "clear_api_key"
+        ],
+        "deny": []
+      }
+    }
+  ]
+}

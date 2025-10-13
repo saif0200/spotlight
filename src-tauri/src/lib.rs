@@ -32,7 +32,19 @@ const MENU_ITEM_QUIT: &str = "tray-quit";
 const MENU_ITEM_API_SETTINGS: &str = "menu-api-settings";
 const TRAY_TOOLTIP: &str = "Spotlight";
 const SETTINGS_WINDOW_LABEL: &str = "settings";
-const SETTINGS_STORE_PATH: &str = "settings.json";
+fn get_settings_store_path(app: &AppHandle) -> String {
+    let app_data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
+        eprintln!("Failed to get app data directory, using fallback");
+        std::env::current_dir().unwrap().join("data")
+    });
+
+    // Ensure the directory exists
+    if let Err(err) = std::fs::create_dir_all(&app_data_dir) {
+        eprintln!("Failed to create app data directory: {}", err);
+    }
+
+    app_data_dir.join("settings.json").to_string_lossy().to_string()
+}
 const SETTINGS_STORE_KEY: &str = "GEMINI_API_KEY";
 const API_KEY_UPDATED_EVENT: &str = "api-key-updated";
 
@@ -529,10 +541,16 @@ fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
 fn settings_store(
     app: &AppHandle,
 ) -> Result<Arc<tauri_plugin_store::Store<tauri::Wry>>, tauri_plugin_store::Error> {
-    let store = StoreBuilder::new(app, SETTINGS_STORE_PATH).build()?;
+    let store_path = get_settings_store_path(app);
+    println!("DEBUG: Creating settings store with path: {}", store_path);
+    let store = StoreBuilder::new(app, store_path).build()?;
+    println!("DEBUG: Store built successfully");
     // ensure cache reflects on-disk contents
     if let Err(err) = store.reload() {
+        println!("DEBUG: Failed to reload settings store: {err}");
         eprintln!("Failed to reload settings store: {err}");
+    } else {
+        println!("DEBUG: Store reloaded successfully");
     }
     Ok(store)
 }
@@ -545,28 +563,46 @@ fn emit_api_key_update(app: &AppHandle, value: Option<String>) {
 
 #[tauri::command]
 fn get_api_key(app: AppHandle) -> Result<Option<String>, String> {
-    let store = settings_store(&app).map_err(|e| e.to_string())?;
+    println!("DEBUG: Getting API key from store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
     let value = store
         .get(SETTINGS_STORE_KEY)
         .and_then(|json| json.as_str().map(|s| s.to_string()));
+    println!("DEBUG: Retrieved API key value: {}", value.is_some());
     Ok(value)
 }
 
 #[tauri::command]
 fn set_api_key(app: AppHandle, api_key: String) -> Result<(), String> {
-    let store = settings_store(&app).map_err(|e| e.to_string())?;
+    println!("DEBUG: Setting API key in store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    println!("DEBUG: Store created successfully, setting key...");
     store.set(SETTINGS_STORE_KEY, api_key.clone());
-    store.save().map_err(|e| e.to_string())?;
+    println!("DEBUG: Key set in memory, attempting to save to disk...");
+    store.save().map_err(|e| {
+        println!("DEBUG: Store save failed with error: {:?}", e);
+        format!("Failed to save store: {}", e)
+    })?;
+    println!("DEBUG: Store saved successfully to disk");
     emit_api_key_update(&app, Some(api_key));
+    println!("DEBUG: API key update event emitted");
     Ok(())
 }
 
 #[tauri::command]
 fn clear_api_key(app: AppHandle) -> Result<(), String> {
-    let store = settings_store(&app).map_err(|e| e.to_string())?;
+    println!("DEBUG: Clearing API key from store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    println!("DEBUG: Store created successfully, deleting key...");
     store.delete(SETTINGS_STORE_KEY);
-    store.save().map_err(|e| e.to_string())?;
+    println!("DEBUG: Key deleted from memory, attempting to save to disk...");
+    store.save().map_err(|e| {
+        println!("DEBUG: Store save failed with error: {:?}", e);
+        format!("Failed to save store after clearing: {}", e)
+    })?;
+    println!("DEBUG: Store saved successfully to disk");
     emit_api_key_update(&app, None);
+    println!("DEBUG: API key clear event emitted");
     Ok(())
 }
 
