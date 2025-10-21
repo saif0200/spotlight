@@ -534,7 +534,14 @@ function App() {
       e.preventDefault();
       await sendMessage();
     } else if (e.key === "Escape") {
-      // Use the same toggle logic as Cmd+K for consistency
+      // Clear chat state and collapse window
+      setIsExpanded(false);
+      adjustWindowSize(false);
+      setSearchQuery("");
+      setChatHistory([]);
+      setShouldAnimate(false);
+
+      // Use toggle logic instead of always hiding
       void toggleWindow();
     }
   };

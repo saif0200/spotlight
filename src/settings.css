@@ -37,6 +37,7 @@ body {
 
 .settings-card {
   width: min(500px, 100%);
+  max-height: 80vh;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -47,7 +48,7 @@ body {
   flex-direction: column;
   gap: 12px;
   animation: smoothEntrance 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .settings-card.closing {
