@@ -8,6 +8,7 @@ import remarkMath from "remark-math";
 import rehypeSanitize from "rehype-sanitize";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import CopyButton from "./CopyButton";
 import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
 import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
 import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
@@ -48,27 +49,33 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
 
   if (!inline && language) {
     return (
-      <SyntaxHighlighter
-        style={oneDark}
-        language={language}
-        PreTag="pre"
-        customStyle={{
-          margin: "0 0 4px 0",
-          borderRadius: "8px",
-          fontSize: "0.9em",
-          padding: "12px",
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      <div style={{ position: "relative", margin: "0 0 4px 0" }}>
+        <SyntaxHighlighter
+          style={oneDark}
+          language={language}
+          PreTag="pre"
+          customStyle={{
+            margin: 0,
+            borderRadius: "8px",
+            fontSize: "0.9em",
+            padding: "12px",
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
+        <CopyButton text={code} />
+      </div>
     );
   }
 
   if (!inline) {
     return (
-      <pre className={className}>
-        <code {...props}>{children}</code>
-      </pre>
+      <div style={{ position: "relative", margin: "0 0 4px 0" }}>
+        <pre className={className} style={{ margin: 0 }}>
+          <code {...props}>{children}</code>
+        </pre>
+        <CopyButton text={String(children)} />
+      </div>
     );
   }
 

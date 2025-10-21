@@ -346,6 +346,29 @@ body {
   overflow-y: hidden;
 }
 
+/* Copy Button Styles */
+.copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  color: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  opacity: 1;
+  z-index: 10;
+}
+
+.copy-button.copied {
+  color: rgba(16, 185, 129, 0.9);
+}
+
 .message-content img,
 .message-content video,
 .message-content canvas,
@@ -566,7 +589,7 @@ body {
 }
 
 /* Animation restart trick - removing and adding the same class triggers re-animation */
-@keyframes "none" {
+@keyframes none {
   from, to {
     opacity: inherit;
     transform: inherit;
@@ -737,6 +760,15 @@ body {
 
   .message-content pre {
     background: rgba(0, 0, 0, 0.3);
+  }
+
+  .copy-button {
+    background: none;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .copy-button.copied {
+    color: rgba(16, 185, 129, 0.9);
   }
 
   .chat-message.user .message-content code {
