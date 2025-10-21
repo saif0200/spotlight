@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 // Configuration - update these values for your release
 const releaseConfig = {
   version: "0.1.2", // Current release version
-  notes: "Auto-update configuration completed with GitHub releases integration.", // Release notes
+  notes: "Test release for auto-update functionality verification.", // Release notes
   pub_date: new Date().toISOString(), // Current date
   platforms: {
     "darwin-x86_64": {

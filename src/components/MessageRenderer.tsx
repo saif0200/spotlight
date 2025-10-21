@@ -51,7 +51,7 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
       <SyntaxHighlighter
         style={oneDark}
         language={language}
-        PreTag="div"
+        PreTag="pre"
         customStyle={{
           margin: "0 0 4px 0",
           borderRadius: "8px",

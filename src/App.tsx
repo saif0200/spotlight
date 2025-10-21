@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, memo, useCallback, Suspense, lazy } from "
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
-import { platform } from "@tauri-apps/plugin-os";
 import { check } from "@tauri-apps/plugin-updater";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
+import { UpdateAvailable, UpdateInProgress } from "./components/UpdateNotification";
 import "./App.css";
 
 interface SourceInfo {
@@ -33,6 +33,14 @@ interface GeminiResult {
   text: string;
   sources?: SourceInfo[];
 }
+
+interface UpdateInfo {
+  version: string;
+  body: string;
+  date: string;
+}
+
+type UpdateState = 'idle' | 'checking' | 'available' | 'installing' | 'installed' | 'error';
 
 const WINDOW_SIZES = {
   EXPANDED: { width: 700, height: 600 },
@@ -94,6 +102,12 @@ function App() {
   const [systemInstructions, setSystemInstructions] = useState("");
   const [isWindows, setIsWindows] = useState(false);
   const [shouldAnimate, setShouldAnimate] = useState(false);
+
+  // Update state management
+  const [updateState, setUpdateState] = useState<UpdateState>('idle');
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const isTogglingRef = useRef(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -118,21 +132,20 @@ function App() {
     [],
   );
 
-  // Detect platform
+  // Detect platform (simple approach)
   useEffect(() => {
-    const detectPlatform = async () => {
-      const platformName = await platform();
-      const isWin = platformName === "windows";
+    const detectPlatform = () => {
+      // Simple platform detection without plugin
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isWin = userAgent.includes('win');
       setIsWindows(isWin);
       isWindowsRef.current = isWin;
 
-      if (isWin) {
-        await adjustWindowSize(isExpandedRef.current);
-      }
+      console.log(`Detected platform: ${isWin ? 'Windows' : 'macOS/Linux'}`);
     };
 
-    void detectPlatform();
-  }, [adjustWindowSize]);
+    detectPlatform();
+  }, []);
 
   useEffect(() => {
     isWindowsRef.current = isWindows;
@@ -162,33 +175,112 @@ function App() {
     void loadSettings();
   }, []);
 
+  // Update state handlers
+
+  const handleUpdateDismissed = useCallback(() => {
+    console.log("👤 User dismissed update notification");
+    setShowUpdateNotification(false);
+    setUpdateState('idle');
+    setUpdateInfo(null);
+  }, []);
+
+  const handleInstallUpdate = useCallback(async () => {
+    if (!updateInfo) return;
+
+    setUpdateState('installing');
+    setUpdateError(null);
+
+    try {
+      console.log("⬇️ Installing update...");
+
+      // Find the update object and install it
+      const update = await check();
+      if (update) {
+        await update.downloadAndInstall();
+        console.log("✅ Update installed successfully!");
+        setUpdateState('installed');
+
+        // Show success message for a few seconds, then reset
+        setTimeout(() => {
+          setShowUpdateNotification(false);
+          setUpdateState('idle');
+          setUpdateInfo(null);
+        }, 5000);
+      }
+    } catch (error) {
+      console.error("❌ Failed to install update:", error);
+      setUpdateError(error instanceof Error ? error.message : "Failed to install update");
+      setUpdateState('error');
+    }
+  }, [updateInfo]);
+
   // Check for updates on app startup
   useEffect(() => {
     const checkForUpdates = async () => {
+      setUpdateState('checking');
       try {
-        console.log("Checking for updates...");
+        console.log("🔄 Starting update check...");
+        console.log("📡 Fetching from:", "http://localhost:3003/latest.json");
+
         const update = await check();
-        if (update?.available) {
-          console.log(`Update available: ${update.version}`);
-          const yes = confirm(
-            `Update to version ${update.version} is available. Install now?`
-          );
-          if (yes) {
-            console.log("Downloading update...");
-            await update.downloadAndInstall();
-            console.log("Update installed! Please restart the app manually.");
+        console.log("📦 Update check result:", update);
+
+        if (update) {
+          console.log("🔍 Update object properties:", {
+            available: update.available,
+            version: update.version,
+            body: update.body,
+            date: update.date
+          });
+
+          if (update.available) {
+            console.log(`✅ Update available: ${update.version}`);
+            console.log("📋 Update notes:", update.body);
+
+            // Show update notification instead of auto-installing
+            const updateInfo: UpdateInfo = {
+              version: update.version,
+              body: update.body || "",
+              date: update.date || ""
+            };
+
+            setUpdateInfo(updateInfo);
+            setUpdateState('available');
+            setShowUpdateNotification(true);
+          } else {
+            console.log("✅ App is up to date (no new version available)");
+            setUpdateState('idle');
           }
         } else {
-          console.log("App is up to date");
+          console.log("⚠️ Update check returned null/undefined");
+          setUpdateState('idle');
         }
       } catch (error) {
-        console.error("Failed to check for updates:", error);
+        console.error("❌ Failed to check for updates:", error);
+        console.error("🔍 Error details:", {
+          name: error instanceof Error ? error.name : 'Unknown',
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : 'No stack trace'
+        });
+
+        setUpdateError(error instanceof Error ? error.message : "Failed to check for updates");
+        setUpdateState('error');
+
         // Handle gracefully - don't show error to user on startup
         if (error instanceof Error && error.message.includes("Could not fetch a valid release JSON")) {
-          console.log("Update server not configured - no releases available yet");
+          console.log("ℹ️ Update server not configured or no releases available yet");
+          setUpdateState('idle');
+        } else if (error instanceof Error && error.message.includes("Failed to fetch")) {
+          console.log("ℹ️ Network error - will retry later");
+          setUpdateState('idle');
+        } else {
+          console.log("ℹ️ Unexpected update error - continuing without update");
+          setUpdateState('idle');
         }
       }
     };
+
+    console.log("🚀 Setting up automatic update check on app startup");
     checkForUpdates();
   }, []);
 
@@ -455,6 +547,34 @@ function App() {
   return (
     <div className={`spotlight-container ${isWindows ? 'windows' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1}>
       <div className={`content-area ${isExpanded ? "expanded" : ""} ${shouldAnimate ? 'animate-in' : ''}`}>
+        {/* Update Notifications */}
+        {showUpdateNotification && updateState === 'available' && updateInfo && (
+          <UpdateAvailable
+            updateInfo={updateInfo}
+            onInstall={handleInstallUpdate}
+            onDismiss={handleUpdateDismissed}
+            isInstalling={false}
+          />
+        )}
+
+        {updateState === 'installing' && (
+          <UpdateInProgress
+            status="Downloading and installing update..."
+          />
+        )}
+
+        {updateState === 'installed' && (
+          <div className="update-success-message">
+            ✅ Update installed successfully! Please restart the app.
+          </div>
+        )}
+
+        {updateState === 'error' && updateError && (
+          <div className="update-error-message">
+            ❌ Update failed: {updateError}
+          </div>
+        )}
+
         <div className="chat-container" ref={chatContainerRef} role="log" aria-live="polite" aria-label="Chat conversation">
           {chatHistory.map((msg, idx) => (
             <ChatMessage key={idx} msg={msg} idx={idx} />

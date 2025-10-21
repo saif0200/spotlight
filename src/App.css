@@ -747,3 +747,49 @@ body {
     background: rgba(255, 255, 255, 0.15);
   }
 }
+
+/* Update Status Messages */
+.update-success-message,
+.update-error-message {
+  margin: 8px 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: slideIn 0.3s ease-out;
+  backdrop-filter: blur(10px);
+}
+
+.update-success-message {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #065f46;
+}
+
+.update-error-message {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #991b1b;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode support for update messages */
+@media (prefers-color-scheme: dark) {
+  .update-success-message {
+    color: #34d399;
+  }
+
+  .update-error-message {
+    color: #f87171;
+  }
+}

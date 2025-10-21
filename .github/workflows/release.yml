@@ -50,6 +50,10 @@ jobs:
       - name: Build Tauri App
         run: npm run tauri build -- --target x86_64-apple-darwin
 
+      - name: Sign macOS Intel app
+        run: |
+          codesign --force --deep --sign - src-tauri/target/x86_64-apple-darwin/release/bundle/macos/spotlight.app
+
       - name: Upload macOS Intel DMG
         uses: actions/upload-artifact@v4
         with:

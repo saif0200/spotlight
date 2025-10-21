@@ -175,31 +175,52 @@ function SettingsApp() {
       // Import the check function dynamically
       const { check } = await import("@tauri-apps/plugin-updater");
 
+      console.log("🔍 Settings: Starting manual update check...");
       setStatusIntent("info");
       setStatusMessage("Checking for updates...");
 
       const update = await check();
-      if (update?.available) {
-        const yes = confirm(
-          `Update to version ${update.version} is available. Install now?`
-        );
-        if (yes) {
-          setStatusIntent("info");
-          setStatusMessage("Downloading update...");
-          await update.downloadAndInstall();
-          setStatusIntent("success");
-          setStatusMessage("Update installed! Please restart the app manually.");
+      console.log("🔍 Settings: Update check result:", update);
+
+      if (update) {
+        console.log("🔍 Settings: Update object properties:", {
+          available: update.available,
+          version: update.version,
+          body: update.body,
+          date: update.date
+        });
+
+        if (update.available) {
+          console.log("✅ Settings: Update available! Version:", update.version);
+          console.log("🤖 Settings: Auto-accepting update for testing...");
+
+          try {
+            console.log("⬇️ Settings: Downloading update...");
+            setStatusIntent("info");
+            setStatusMessage("Downloading update...");
+            await update.downloadAndInstall();
+            console.log("✅ Settings: Update installed!");
+            setStatusIntent("success");
+            setStatusMessage("Update installed! Please restart the app manually.");
+          } catch (installError) {
+            console.error("❌ Settings: Failed to install update:", installError);
+            setStatusIntent("error");
+            setStatusMessage(`Failed to install update: ${installError instanceof Error ? installError.message : String(installError)}`);
+            throw installError;
+          }
         } else {
-          setStatusIntent("info");
-          setStatusMessage("Update cancelled.");
+          console.log("✅ Settings: No update available");
+          setStatusIntent("success");
+          setStatusMessage("App is up to date!");
         }
       } else {
-        setStatusIntent("success");
-        setStatusMessage("App is up to date!");
+        console.log("⚠️ Settings: Update check returned null");
+        setStatusIntent("info");
+        setStatusMessage("Unable to check for updates.");
       }
     } catch (error) {
-      console.error("Failed to check for updates:", error);
-      console.error("Error type:", typeof error);
+      console.error("❌ Settings: Failed to check for updates:", error);
+      console.error("🔍 Settings: Error type:", typeof error);
       console.error("Error message:", error instanceof Error ? error.message : String(error));
 
       // Handle specific update server errors gracefully
@@ -267,6 +288,23 @@ function SettingsApp() {
             autoFocus
             disabled={isBusy}
           />
+        </div>
+
+        {/* Update Status Section */}
+        <div className="settings-section">
+          <h4>App Updates</h4>
+          <p style={{marginBottom: '8px'}}>Version: <span className="current-version">0.1.1</span></p>
+          <div className="update-status-container">
+            {statusMessage && statusMessage.includes("Update installed") ? (
+              <div className="update-status-success">
+                ✅ {statusMessage}
+              </div>
+            ) : statusMessage && statusMessage.includes("downloading") ? (
+              <div className="update-status-progress">
+                ⬇️ {statusMessage}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         {/* System Instructions Section */}
