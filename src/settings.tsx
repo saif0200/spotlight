@@ -170,6 +170,53 @@ function SettingsApp() {
     }
   }, []);
 
+  const handleCheckForUpdates = useCallback(async () => {
+    try {
+      // Import the check function dynamically
+      const { check } = await import("@tauri-apps/plugin-updater");
+
+      setStatusIntent("info");
+      setStatusMessage("Checking for updates...");
+
+      const update = await check();
+      if (update?.available) {
+        const yes = confirm(
+          `Update to version ${update.version} is available. Install now?`
+        );
+        if (yes) {
+          setStatusIntent("info");
+          setStatusMessage("Downloading update...");
+          await update.downloadAndInstall();
+          setStatusIntent("success");
+          setStatusMessage("Update installed! Please restart the app manually.");
+        } else {
+          setStatusIntent("info");
+          setStatusMessage("Update cancelled.");
+        }
+      } else {
+        setStatusIntent("success");
+        setStatusMessage("App is up to date!");
+      }
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error instanceof Error ? error.message : String(error));
+
+      // Handle specific update server errors gracefully
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (errorMessage.includes("Could not fetch a valid release JSON") ||
+          errorMessage.includes("release JSON") ||
+          errorMessage.includes("404") ||
+          errorMessage.includes("Not Found")) {
+        setStatusIntent("info");
+        setStatusMessage("Update server not configured. Create a GitHub release to enable updates.");
+      } else {
+        setStatusIntent("error");
+        setStatusMessage(`Failed to check for updates: ${errorMessage}`);
+      }
+    }
+  }, []);
+
   const onSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       console.log("DEBUG: Form submitted");
@@ -260,6 +307,15 @@ function SettingsApp() {
             title={(apiKey.length === 0 && systemInstructions.length === 0) ? "No settings to clear" : "Clear all settings"}
           >
             Clear
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleCheckForUpdates()}
+            disabled={isBusy}
+            title="Check for app updates"
+            className="update-button"
+          >
+            Check Updates
           </button>
         </div>
       </form>

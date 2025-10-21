@@ -566,7 +566,7 @@ body {
 }
 
 /* Animation restart trick - removing and adding the same class triggers re-animation */
-@keyframes none {
+@keyframes "none" {
   from, to {
     opacity: inherit;
     transform: inherit;

@@ -295,6 +295,22 @@ body {
   transform: translateY(0);
 }
 
+.button-group .update-button {
+  background: rgba(16, 185, 129, 0.85);
+  color: white;
+  font-size: 13px;
+}
+
+.button-group .update-button:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.button-group .update-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
 .status-message {
   font-size: 13px;
   padding: 10px 14px;
@@ -420,6 +436,15 @@ body {
   .button-group button[type="button"]:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.15);
     color: rgba(255, 255, 255, 0.95);
+  }
+
+  .button-group .update-button {
+    background: rgba(16, 185, 129, 0.8);
+  }
+
+  .button-group .update-button:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.9);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
   }
 
   .status-message {

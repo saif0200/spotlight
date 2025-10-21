@@ -1,13 +1,19 @@
 {
   "name": "spotlight",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build": "tauri build",
+    "tauri:build-all": "tauri build --target x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-msvc",
+    "tauri:build-macos-intel": "tauri build --target x86_64-apple-darwin",
+    "tauri:build-macos-arm": "tauri build --target aarch64-apple-darwin",
+    "tauri:build-windows": "tauri build --target x86_64-pc-windows-msvc",
+    "tauri:dev": "tauri dev"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

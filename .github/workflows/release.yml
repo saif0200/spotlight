@@ -23,11 +23,11 @@ jobs:
       - name: Build Tauri App
         run: npm run tauri build
 
-      - name: Upload Windows artifact
+      - name: Upload Windows installer
         uses: actions/upload-artifact@v4
         with:
           name: spotlight-windows-x64
-          path: src-tauri/target/release/spotlight.exe
+          path: src-tauri/target/release/bundle/nsis/spotlight_0.1.1_x64-setup.exe
 
   build-macos-intel:
     runs-on: macos-13
@@ -50,19 +50,11 @@ jobs:
       - name: Build Tauri App
         run: npm run tauri build -- --target x86_64-apple-darwin
 
-      - name: Sign app
-        run: codesign --force --deep --sign - src-tauri/target/x86_64-apple-darwin/release/bundle/macos/spotlight.app
-
-      - name: Package app
-        run: |
-          cd src-tauri/target/x86_64-apple-darwin/release/bundle/macos
-          zip -r spotlight-macos-intel.zip spotlight.app
-
-      - name: Upload macOS Intel artifact
+      - name: Upload macOS Intel DMG
         uses: actions/upload-artifact@v4
         with:
           name: spotlight-macos-intel
-          path: src-tauri/target/x86_64-apple-darwin/release/bundle/macos/spotlight-macos-intel.zip
+          path: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/spotlight_0.1.1_x64.dmg
 
   build-macos-silicon:
     runs-on: macos-latest
@@ -85,19 +77,11 @@ jobs:
       - name: Build Tauri App
         run: npm run tauri build -- --target aarch64-apple-darwin
 
-      - name: Sign app
-        run: codesign --force --deep --sign - src-tauri/target/aarch64-apple-darwin/release/bundle/macos/spotlight.app
-
-      - name: Package app
-        run: |
-          cd src-tauri/target/aarch64-apple-darwin/release/bundle/macos
-          zip -r spotlight-macos-silicon.zip spotlight.app
-
-      - name: Upload macOS Silicon artifact
+      - name: Upload macOS Silicon DMG
         uses: actions/upload-artifact@v4
         with:
           name: spotlight-macos-apple-silicon
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/macos/spotlight-macos-silicon.zip
+          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/spotlight_0.1.1_aarch64.dmg
 
   create-release:
     needs: [build-windows, build-macos-intel, build-macos-silicon]
@@ -110,15 +94,52 @@ jobs:
         with:
           path: artifacts
 
+      - name: Create latest.json
+        run: |
+          cat > latest.json << EOF
+          {
+            "version": "0.1.1",
+            "notes": "Auto-update configuration completed with GitHub releases integration.",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)",
+            "platforms": {
+              "darwin-x86_64": {
+                "signature": "",
+                "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.1/spotlight_0.1.1_x64.dmg"
+              },
+              "darwin-aarch64": {
+                "signature": "",
+                "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.1/spotlight_0.1.1_aarch64.dmg"
+              },
+              "windows-x86_64": {
+                "signature": "",
+                "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.1/spotlight_0.1.1_x64-setup.exe"
+              }
+            }
+          }
+          EOF
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            artifacts/spotlight-windows-x64/spotlight.exe
-            artifacts/spotlight-macos-intel/spotlight-macos-intel.zip
-            artifacts/spotlight-macos-apple-silicon/spotlight-macos-silicon.zip
-          tag_name: v${{ github.run_number }}
-          draft: true
+            artifacts/spotlight-windows-x64/spotlight_0.1.1_x64-setup.exe
+            artifacts/spotlight-macos-intel/spotlight_0.1.1_x64.dmg
+            artifacts/spotlight-macos-apple-silicon/spotlight_0.1.1_aarch64.dmg
+            latest.json
+          tag_name: v0.1.1
+          name: "Spotlight v0.1.1"
+          body: |
+            ## Spotlight v0.1.1
+
+            Auto-update configuration completed with GitHub releases integration.
+
+            ### Downloads
+            - **Windows**: `spotlight_0.1.1_x64-setup.exe` - Windows installer
+            - **macOS Intel**: `spotlight_0.1.1_x64.dmg` - macOS Intel DMG
+            - **macOS Apple Silicon**: `spotlight_0.1.1_aarch64.dmg` - macOS Apple Silicon DMG
+
+            The application will automatically check for updates on startup.
+          draft: false
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,7 +4,6 @@ import { register } from "@tauri-apps/plugin-global-shortcut";
 import { invoke } from "@tauri-apps/api/core";
 import { platform } from "@tauri-apps/plugin-os";
 import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import "./App.css";
 
@@ -177,14 +176,17 @@ function App() {
           if (yes) {
             console.log("Downloading update...");
             await update.downloadAndInstall();
-            console.log("Update installed. Relaunching app...");
-            await relaunch();
+            console.log("Update installed! Please restart the app manually.");
           }
         } else {
           console.log("App is up to date");
         }
       } catch (error) {
         console.error("Failed to check for updates:", error);
+        // Handle gracefully - don't show error to user on startup
+        if (error instanceof Error && error.message.includes("Could not fetch a valid release JSON")) {
+          console.log("Update server not configured - no releases available yet");
+        }
       }
     };
     checkForUpdates();
