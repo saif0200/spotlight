@@ -534,13 +534,8 @@ function App() {
       e.preventDefault();
       await sendMessage();
     } else if (e.key === "Escape") {
-      // Collapse and reset before hiding
-      setIsExpanded(false);
-      await adjustWindowSize(false);
-      setSearchQuery("");
-      setChatHistory([]);
-      setShouldAnimate(false);
-      await getCurrentWindow().hide();
+      // Use the same toggle logic as Cmd+K for consistency
+      void toggleWindow();
     }
   };
 
