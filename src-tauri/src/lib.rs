@@ -46,12 +46,20 @@ fn get_settings_store_path(app: &AppHandle) -> String {
     app_data_dir.join("settings.json").to_string_lossy().to_string()
 }
 const SETTINGS_STORE_KEY: &str = "GEMINI_API_KEY";
+const SYSTEM_INSTRUCTIONS_KEY: &str = "SYSTEM_INSTRUCTIONS";
 const API_KEY_UPDATED_EVENT: &str = "api-key-updated";
+const SYSTEM_INSTRUCTIONS_UPDATED_EVENT: &str = "system-instructions-updated";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ApiKeyPayload {
     api_key: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SystemInstructionsPayload {
+    system_instructions: Option<String>,
 }
 
 #[derive(Clone)]
@@ -91,6 +99,7 @@ fn close_api_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
         window.close().map_err(|e| e.to_string())
     } else {
+        // Window is already closed or doesn't exist
         Ok(())
     }
 }
@@ -281,7 +290,14 @@ struct GenerationConfig {
 }
 
 #[derive(Serialize, Deserialize)]
+struct SystemInstruction {
+    parts: Vec<GeminiPart>,
+}
+
+#[derive(Serialize, Deserialize)]
 struct GeminiRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system_instruction: Option<SystemInstruction>,
     contents: Vec<GeminiContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<Tool>>,
@@ -351,6 +367,7 @@ async fn send_to_gemini(
     grounding_enabled: Option<bool>,
     thinking_enabled: Option<bool>,
     chat_history: Vec<ChatMessage>,
+    system_instructions: Option<String>,
 ) -> Result<String, String> {
     // Build conversation history
     let mut contents: Vec<GeminiContent> = chat_history
@@ -415,7 +432,23 @@ async fn send_to_gemini(
         None
     };
 
+    let system_instruction = if let Some(instructions) = system_instructions {
+        if !instructions.trim().is_empty() {
+            Some(SystemInstruction {
+                parts: vec![GeminiPart {
+                    text: Some(instructions),
+                    inline_data: None,
+                }],
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     let request = GeminiRequest {
+        system_instruction,
         contents,
         tools,
         generation_config,
@@ -517,6 +550,10 @@ fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
     if let Some(window) = app.get_webview_window(SETTINGS_WINDOW_LABEL) {
         window.show()?;
         window.set_focus()?;
+        // Reset the closing state by emitting an event to the frontend
+        if let Err(err) = window.emit("reset-animation-state", ()) {
+            eprintln!("Failed to emit reset event: {err}");
+        }
         return Ok(());
     }
 
@@ -526,15 +563,31 @@ fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
         WebviewUrl::App("settings.html".into()),
     )
     .title("Spotlight Settings")
-    .inner_size(500.0, 320.0)
+    .inner_size(520.0, 520.0)
     .resizable(false)
     .visible(true)
     .decorations(false)
     .transparent(true)
     .center()
+    .always_on_top(true)
+    .skip_taskbar(true)
     .build()?;
 
     settings_window.set_focus()?;
+
+    // Add event handler to handle settings window close properly
+    let settings_window_for_event = settings_window.clone();
+    settings_window.on_window_event(move |event| {
+        if let WindowEvent::CloseRequested { api, .. } = event {
+            // Hide the window instead of closing it to prevent crashes
+            // The animation will play and then the window will be hidden
+            api.prevent_close();
+            if let Err(err) = settings_window_for_event.hide() {
+                eprintln!("Failed to hide settings window: {err}");
+            }
+        }
+    });
+
     Ok(())
 }
 
@@ -558,6 +611,12 @@ fn settings_store(
 fn emit_api_key_update(app: &AppHandle, value: Option<String>) {
     if let Err(err) = app.emit(API_KEY_UPDATED_EVENT, ApiKeyPayload { api_key: value }) {
         eprintln!("Failed to emit API key update event: {err}");
+    }
+}
+
+fn emit_system_instructions_update(app: &AppHandle, value: Option<String>) {
+    if let Err(err) = app.emit(SYSTEM_INSTRUCTIONS_UPDATED_EVENT, SystemInstructionsPayload { system_instructions: value }) {
+        eprintln!("Failed to emit system instructions update event: {err}");
     }
 }
 
@@ -606,6 +665,51 @@ fn clear_api_key(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn get_system_instructions(app: AppHandle) -> Result<Option<String>, String> {
+    println!("DEBUG: Getting system instructions from store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    let value = store
+        .get(SYSTEM_INSTRUCTIONS_KEY)
+        .and_then(|json| json.as_str().map(|s| s.to_string()));
+    println!("DEBUG: Retrieved system instructions value: {}", value.is_some());
+    Ok(value)
+}
+
+#[tauri::command]
+fn set_system_instructions(app: AppHandle, instructions: String) -> Result<(), String> {
+    println!("DEBUG: Setting system instructions in store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    println!("DEBUG: Store created successfully, setting instructions...");
+    store.set(SYSTEM_INSTRUCTIONS_KEY, instructions.clone());
+    println!("DEBUG: Instructions set in memory, attempting to save to disk...");
+    store.save().map_err(|e| {
+        println!("DEBUG: Store save failed with error: {:?}", e);
+        format!("Failed to save store: {}", e)
+    })?;
+    println!("DEBUG: Store saved successfully to disk");
+    emit_system_instructions_update(&app, Some(instructions));
+    println!("DEBUG: System instructions update event emitted");
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_system_instructions(app: AppHandle) -> Result<(), String> {
+    println!("DEBUG: Clearing system instructions from store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    println!("DEBUG: Store created successfully, deleting instructions...");
+    store.delete(SYSTEM_INSTRUCTIONS_KEY);
+    println!("DEBUG: Instructions deleted from memory, attempting to save to disk...");
+    store.save().map_err(|e| {
+        println!("DEBUG: Store save failed with error: {:?}", e);
+        format!("Failed to save store after clearing: {}", e)
+    })?;
+    println!("DEBUG: Store saved successfully to disk");
+    emit_system_instructions_update(&app, None);
+    println!("DEBUG: System instructions clear event emitted");
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -613,7 +717,7 @@ pub fn run() {
             let api_settings_item = MenuItem::with_id(
                 app_handle,
                 MENU_ITEM_API_SETTINGS,
-                "API Key Settings...",
+                "Settings...",
                 true,
                 Some("CmdOrCtrl+,"),
             )?;
@@ -691,7 +795,7 @@ pub fn run() {
                 let settings_item = MenuItem::with_id(
                     handle,
                     MENU_ITEM_API_SETTINGS,
-                    "API Key Settings...",
+                    "Settings...",
                     true,
                     None::<&str>,
                 )?;
@@ -780,7 +884,10 @@ pub fn run() {
             close_api_settings_window,
             get_api_key,
             set_api_key,
-            clear_api_key
+            clear_api_key,
+            get_system_instructions,
+            set_system_instructions,
+            clear_system_instructions
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

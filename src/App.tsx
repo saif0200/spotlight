@@ -27,6 +27,7 @@ interface SendToGeminiParams extends Record<string, unknown> {
   groundingEnabled: boolean;
   thinkingEnabled: boolean;
   chatHistory: Message[];
+  systemInstructions?: string;
 }
 
 interface GeminiResult {
@@ -52,6 +53,7 @@ const GLOBAL_SHORTCUT = "CommandOrControl+K";
 
 const MessageRenderer = lazy(() => import("./components/MessageRenderer"));
 const API_KEY_UPDATED_EVENT = "api-key-updated";
+const SYSTEM_INSTRUCTIONS_UPDATED_EVENT = "system-instructions-updated";
 
 // Memoized chat message component for performance
 const ChatMessage = memo(({ msg, idx }: { msg: Message; idx: number }) => (
@@ -90,6 +92,7 @@ function App() {
   const [chatHistory, setChatHistory] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  const [systemInstructions, setSystemInstructions] = useState("");
   const [isWindows, setIsWindows] = useState(false);
   const [shouldAnimate, setShouldAnimate] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -141,19 +144,23 @@ function App() {
   }, [isExpanded]);
 
   
-  // Load API key from secure store
+  // Load settings from secure store
   useEffect(() => {
-    const loadApiKey = async () => {
+    const loadSettings = async () => {
       try {
-        const storedKey = await invoke<string | null>("get_api_key");
+        const [storedKey, storedInstructions] = await Promise.all([
+          invoke<string | null>("get_api_key"),
+          invoke<string | null>("get_system_instructions")
+        ]);
         setApiKey(storedKey ?? "");
-        console.log("API key loaded successfully");
+        setSystemInstructions(storedInstructions ?? "");
+        console.log("Settings loaded successfully");
       } catch (error) {
-        console.error("Failed to load API key from command:", error);
-        // Continue without API key - user can set it later
+        console.error("Failed to load settings from command:", error);
+        // Continue without settings - user can set them later
       }
     };
-    void loadApiKey();
+    void loadSettings();
   }, []);
 
   // Check for updates on app startup
@@ -264,14 +271,7 @@ function App() {
     });
   }, [ensureWindowHidden, ensureWindowShown, runWithToggleGuard]);
 
-  const openSettingsWindow = useCallback(async () => {
-    try {
-      await invoke("open_api_settings_window");
-    } catch (error) {
-      console.error("Failed to open API settings window:", error);
-    }
-  }, []);
-
+  
   useEffect(() => {
     const setupShortcut = async () => {
       try {
@@ -299,6 +299,7 @@ function App() {
     let unlistenShow: UnlistenFn | undefined;
     let unlistenHide: UnlistenFn | undefined;
     let unlistenApiKey: UnlistenFn | undefined;
+    let unlistenSystemInstructions: UnlistenFn | undefined;
 
     const registerListeners = async () => {
       unlistenShow = await listen("spotlight-show", () => {
@@ -311,6 +312,10 @@ function App() {
         const nextKey = event.payload?.apiKey ?? "";
         setApiKey(nextKey);
       });
+      unlistenSystemInstructions = await listen<{ systemInstructions?: string }>(SYSTEM_INSTRUCTIONS_UPDATED_EVENT, (event) => {
+        const nextInstructions = event.payload?.systemInstructions ?? "";
+        setSystemInstructions(nextInstructions);
+      });
     };
 
     void registerListeners();
@@ -319,6 +324,7 @@ function App() {
       unlistenShow?.();
       unlistenHide?.();
       unlistenApiKey?.();
+      unlistenSystemInstructions?.();
     };
   }, [hideWindow, showWindow]);
 
@@ -342,11 +348,10 @@ function App() {
         {
           role: "assistant",
           content:
-            "Please set your API key first. Use Spotlight > API Key Settings in the menu bar to add your Gemini API key. A settings window has been opened for you.",
+            "Please set your API key first. Use Spotlight > Settings in the menu bar to add your Gemini API key.",
         },
       ]);
       setSearchQuery("");
-      await openSettingsWindow();
 
       // Expand window to show the error message
       if (!isExpanded) {
@@ -386,6 +391,7 @@ function App() {
         groundingEnabled,
         thinkingEnabled,
         chatHistory,
+        systemInstructions,
       };
 
       const response = await invoke<string>("send_to_gemini", params);

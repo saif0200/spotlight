@@ -13,7 +13,10 @@
           "close_api_settings_window",
           "get_api_key",
           "set_api_key",
-          "clear_api_key"
+          "clear_api_key",
+          "get_system_instructions",
+          "set_system_instructions",
+          "clear_system_instructions"
         ],
         "deny": []
       }

@@ -36,8 +36,7 @@ body {
 }
 
 .settings-card {
-  width: min(480px, 100%);
-  max-height: 280px;
+  width: min(500px, 100%);
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -49,6 +48,10 @@ body {
   gap: 16px;
   animation: smoothEntrance 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   overflow: hidden;
+}
+
+.settings-card.closing {
+  animation: smoothExit 0.3s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards;
 }
 
 /* Fallback for browsers without backdrop-filter */
@@ -68,6 +71,19 @@ body {
     opacity: 1;
     transform: translateY(0) scale(1);
     filter: blur(0);
+  }
+}
+
+@keyframes smoothExit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    filter: blur(2px);
   }
 }
 
@@ -132,6 +148,21 @@ body {
   opacity: 0.3;
 }
 
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.settings-section h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.87);
+  letter-spacing: -0.01em;
+}
+
 .settings-card p {
   margin: 0;
   font-size: 14px;
@@ -165,6 +196,49 @@ body {
 .settings-card input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.settings-textarea {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.87);
+  background: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+  font-family: inherit;
+  outline: none;
+  resize: none;
+  height: 100px;
+  line-height: 1.4;
+}
+
+.settings-textarea::placeholder {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.settings-textarea:focus {
+  border-color: rgba(0, 120, 250, 0.5);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 0 3px rgba(0, 120, 250, 0.1);
+}
+
+.settings-textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.character-count {
+  text-align: right;
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.character-count .over-limit {
+  color: rgba(220, 38, 38, 0.8);
+  font-weight: 500;
 }
 
 .button-group {
@@ -272,6 +346,10 @@ body {
     color: rgba(255, 255, 255, 0.92);
   }
 
+  .settings-section h4 {
+    color: rgba(255, 255, 255, 0.92);
+  }
+
   .close-button {
     color: rgba(255, 255, 255, 0.6);
   }
@@ -299,6 +377,30 @@ body {
     border-color: rgba(10, 132, 255, 0.5);
     background: rgba(0, 0, 0, 0.4);
     box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+  }
+
+  .settings-textarea {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.92);
+  }
+
+  .settings-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .settings-textarea:focus {
+    border-color: rgba(10, 132, 255, 0.5);
+    background: rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+  }
+
+  .character-count {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  .character-count .over-limit {
+    color: rgba(248, 113, 113, 0.9);
   }
 
   .button-group button[type="submit"] {
