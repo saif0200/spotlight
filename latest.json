@@ -1,15 +1,15 @@
 {
-  "version": "0.1.1",
-  "notes": "Added system instructions support and enhanced settings UI.",
-  "pub_date": "2025-10-21T01:08:21.716Z",
+  "version": "0.1.2",
+  "notes": "Test release for auto-update functionality verification.",
+  "pub_date": "2025-10-21T04:26:16.688Z",
   "platforms": {
     "darwin-x86_64": {
       "signature": "",
-      "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.1/spotlight_0.1.1_x64.dmg"
+      "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.2/spotlight_0.1.2_x64.dmg"
     },
     "darwin-aarch64": {
       "signature": "",
-      "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.1/spotlight_0.1.1_aarch64.dmg"
+      "url": "https://github.com/saif0200/spotlight/releases/download/v0.1.2/spotlight_0.1.2_aarch64.dmg"
     }
   }
 }
