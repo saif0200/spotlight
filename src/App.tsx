@@ -15,6 +15,7 @@ interface SourceInfo {
 interface Message {
   role: "user" | "assistant";
   content: string;
+  thinking?: string;
   sources?: SourceInfo[];
 }
 
@@ -31,6 +32,7 @@ interface SendToGeminiParams extends Record<string, unknown> {
 
 interface GeminiResult {
   text: string;
+  thinking?: string;
   sources?: SourceInfo[];
 }
 
@@ -67,7 +69,7 @@ const ChatMessage = memo(({ msg, idx }: { msg: Message; idx: number }) => (
   <div key={idx} className={`chat-message ${msg.role}`}>
     <div className="message-content">
       <Suspense fallback={<span className="message-renderer-fallback">Loading message…</span>}>
-        <MessageRenderer content={msg.content} />
+        <MessageRenderer content={msg.content} thinking={msg.thinking} />
       </Suspense>
     </div>
     {msg.sources && msg.sources.length > 0 && (
@@ -499,6 +501,7 @@ function App() {
         {
           role: "assistant",
           content: result.text,
+          thinking: result.thinking,
           sources: result.sources,
         },
       ]);

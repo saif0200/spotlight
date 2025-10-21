@@ -281,6 +281,8 @@ struct Tool {
 struct ThinkingConfig {
     #[serde(rename = "thinkingBudget")]
     thinking_budget: i32,
+    #[serde(rename = "includeThoughts")]
+    include_thoughts: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -345,6 +347,8 @@ struct Content {
 #[derive(Deserialize)]
 struct Part {
     text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    thought: Option<bool>,
 }
 
 #[derive(Serialize, Clone)]
@@ -357,6 +361,8 @@ struct SourceInfo {
 struct GeminiResult {
     text: String,
     sources: Option<Vec<SourceInfo>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    thinking: Option<String>,
 }
 
 #[tauri::command]
@@ -426,6 +432,7 @@ async fn send_to_gemini(
                 } else {
                     0
                 },
+                include_thoughts: enabled,
             },
         })
     } else {
@@ -474,12 +481,46 @@ async fn send_to_gemini(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    let text = gemini_response
+    // Extract content and separate thinking from main response
+    let candidate = gemini_response
         .candidates
         .first()
-        .and_then(|c| c.content.parts.first())
-        .map(|p| p.text.clone())
         .ok_or_else(|| "No response from Gemini".to_string())?;
+
+    let parts = &candidate.content.parts;
+    let mut thinking_texts = Vec::new();
+    let mut main_texts = Vec::new();
+
+    // Debug: Log the parts structure
+    println!("DEBUG: Response parts count: {}", parts.len());
+    for (i, part) in parts.iter().enumerate() {
+        println!("DEBUG: Part {}: text_len={}, thought={:?}", i, part.text.len(), part.thought);
+        if part.thought.unwrap_or(false) {
+            println!("DEBUG: Found thinking part: {}", &part.text[..100.min(part.text.len())]);
+            thinking_texts.push(part.text.clone());
+        } else {
+            main_texts.push(part.text.clone());
+        }
+    }
+
+    // Combine main texts into the final response
+    let text = if main_texts.is_empty() {
+        thinking_texts.first()
+            .cloned()
+            .ok_or_else(|| "No response from Gemini".to_string())?
+    } else {
+        main_texts.join("")
+    };
+
+    // Combine thinking texts if any exist
+    let thinking = if thinking_texts.is_empty() {
+        println!("DEBUG: No thinking content found");
+        None
+    } else {
+        let combined_thinking = thinking_texts.join("");
+        println!("DEBUG: Combined thinking length: {}", combined_thinking.len());
+        Some(combined_thinking)
+    };
 
     // Extract sources from grounding metadata
     let sources = gemini_response
@@ -518,6 +559,7 @@ async fn send_to_gemini(
 
     let result = GeminiResult {
         text,
+        thinking,
         sources: if sources.as_ref().map_or(false, |s| !s.is_empty()) {
             sources
         } else {

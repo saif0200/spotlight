@@ -9,6 +9,7 @@ import rehypeSanitize from "rehype-sanitize";
 import { PrismLight as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import CopyButton from "./CopyButton";
+import ThinkingRenderer from "./ThinkingRenderer";
 import tsx from "react-syntax-highlighter/dist/esm/languages/prism/tsx";
 import typescript from "react-syntax-highlighter/dist/esm/languages/prism/typescript";
 import javascript from "react-syntax-highlighter/dist/esm/languages/prism/javascript";
@@ -34,6 +35,7 @@ const baseRehypePlugins: PluggableList = [rehypeSanitize];
 
 interface MessageRendererProps {
   content: string;
+  thinking?: string;
 }
 
 interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
@@ -100,7 +102,7 @@ const markdownComponents: Components = {
   code: CodeRenderer,
 };
 
-const MessageRenderer = ({ content }: MessageRendererProps) => {
+const MessageRenderer = ({ content, thinking }: MessageRendererProps) => {
   const [mathPlugins, setMathPlugins] = useState<PluggableList | null>(null);
   const [isMathLoading, setIsMathLoading] = useState(false);
   const hasMath = /\$\$|\\\(|\\\[|\\begin\{.*?\}/.test(content);
@@ -146,13 +148,20 @@ const MessageRenderer = ({ content }: MessageRendererProps) => {
   const rehypePlugins = mathPlugins ? [...baseRehypePlugins, ...mathPlugins] : baseRehypePlugins;
 
   return (
-    <ReactMarkdown
-      remarkPlugins={baseRemarkPlugins}
-      rehypePlugins={rehypePlugins}
-      components={markdownComponents}
-    >
-      {content}
-    </ReactMarkdown>
+    <>
+      {thinking && (
+        <div style={{ marginBottom: "8px" }}>
+          <ThinkingRenderer content={thinking} />
+        </div>
+      )}
+      <ReactMarkdown
+        remarkPlugins={baseRemarkPlugins}
+        rehypePlugins={rehypePlugins}
+        components={markdownComponents}
+      >
+        {content}
+      </ReactMarkdown>
+    </>
   );
 };
 
