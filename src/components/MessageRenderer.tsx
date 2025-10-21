@@ -49,7 +49,26 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
   const language = match ? match[1] : "";
   const code = String(children).replace(/\s+$/, "").trim();
 
-  if (!inline && language) {
+  // Debug: log the props to understand what react-markdown is sending
+  console.log('CodeRenderer props:', { inline, className, children: String(children), props });
+
+  // Additional detection: if there are no newlines and it's short, treat as inline
+  const content = String(children);
+  const isProbablyInline = !content.includes('\n') && content.length < 100 && !language;
+
+  // Handle inline code first - this should always render inline
+  if (inline || isProbablyInline) {
+    console.log('Rendering as inline code', { inline, isProbablyInline, content: content.slice(0, 20) });
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  // Handle code blocks with syntax highlighting
+  if (language) {
+    console.log('Rendering as syntax-highlighted code block');
     return (
       <div style={{ position: "relative", margin: "0 0 4px 0" }}>
         <SyntaxHighlighter
@@ -70,21 +89,15 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
     );
   }
 
-  if (!inline) {
-    return (
-      <div style={{ position: "relative", margin: "0 0 4px 0" }}>
-        <pre className={className} style={{ margin: 0 }}>
-          <code {...props}>{children}</code>
-        </pre>
-        <CopyButton text={String(children)} />
-      </div>
-    );
-  }
-
+  // Handle plain code blocks
+  console.log('Rendering as plain code block');
   return (
-    <code className={className} {...props}>
-      {children}
-    </code>
+    <div style={{ position: "relative", margin: "0 0 4px 0" }}>
+      <pre className={className} style={{ margin: 0 }}>
+        <code {...props}>{children}</code>
+      </pre>
+      <CopyButton text={String(children)} />
+    </div>
   );
 };
 

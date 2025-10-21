@@ -131,6 +131,7 @@ body {
 
 .chat-message.user {
   align-items: flex-end;
+  padding-right: 12px;
 }
 
 .chat-message.assistant {
@@ -140,7 +141,7 @@ body {
 .message-content {
   display: inline-flex;
   flex-direction: column;
-  max-width: min(85%, 640px);
+  max-width: min(75%, 640px);
   padding: 12px 16px;
   border-radius: 12px;
   word-wrap: break-word;
@@ -379,7 +380,7 @@ body {
 
 @media (max-width: 720px) {
   .message-content {
-    max-width: 90%;
+    max-width: 80%;
   }
 }
 
