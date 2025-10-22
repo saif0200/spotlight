@@ -80,7 +80,7 @@ const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlock
             margin: 0,
             borderRadius: "8px",
             fontSize: "0.9em",
-            padding: "12px",
+            padding: "40px 12px 12px 12px",
           }}
         >
           {code}
@@ -94,7 +94,7 @@ const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlock
   console.log('Rendering as plain code block');
   return (
     <div style={{ position: "relative", margin: "0 0 4px 0" }}>
-      <pre className={className} style={{ margin: 0 }}>
+      <pre className={className} style={{ margin: 0, paddingTop: "40px" }}>
         <code>{children}</code>
       </pre>
       <CopyButton text={String(children)} />

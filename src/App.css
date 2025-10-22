@@ -352,18 +352,20 @@ body {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: none;
-  color: rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
   border: none;
   border-radius: 6px;
-  padding: 6px;
+  padding: 4px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
   opacity: 1;
   z-index: 10;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
 }
 
 .copy-button.copied {
