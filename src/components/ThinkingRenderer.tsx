@@ -193,7 +193,7 @@ const ThinkingRenderer = ({ content, thinkingTime }: ThinkingRendererProps) => {
   };
 
   return (
-    <div style={{ marginBottom: "2px" }}>
+    <div style={{ marginBottom: "8px" }}>
       <button
         onClick={toggleExpanded}
         style={{

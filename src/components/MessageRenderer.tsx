@@ -163,12 +163,8 @@ const MessageRenderer = ({ content, thinking, thinkingTime }: MessageRendererPro
   const rehypePlugins = mathPlugins ? [...baseRehypePlugins, ...mathPlugins] : baseRehypePlugins;
 
   return (
-    <div style={{ width: "100%" }}>
-      {thinking && (
-        <div style={{ marginBottom: "2px" }}>
-          <ThinkingRenderer content={thinking} thinkingTime={thinkingTime} />
-        </div>
-      )}
+    <>
+      {thinking && <ThinkingRenderer content={thinking} thinkingTime={thinkingTime} />}
       <ReactMarkdown
         remarkPlugins={baseRemarkPlugins}
         rehypePlugins={rehypePlugins}
@@ -176,7 +172,7 @@ const MessageRenderer = ({ content, thinking, thinkingTime }: MessageRendererPro
       >
         {content}
       </ReactMarkdown>
-    </div>
+    </>
   );
 };
 
