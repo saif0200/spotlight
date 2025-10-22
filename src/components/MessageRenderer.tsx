@@ -42,9 +42,10 @@ interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
   inline?: boolean;
   className?: string;
   children?: ReactNode;
+  node?: any;
 }
 
-const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps) => {
+const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlockProps) => {
   const match = /language-(\w+)/.exec(className || "");
   const language = match ? match[1] : "";
   const code = String(children).replace(/\s+$/, "").trim();
@@ -60,7 +61,7 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
   if (inline || isProbablyInline) {
     console.log('Rendering as inline code', { inline, isProbablyInline, content: content.slice(0, 20) });
     return (
-      <code className={className} {...props}>
+      <code className={className}>
         {children}
       </code>
     );
@@ -94,7 +95,7 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
   return (
     <div style={{ position: "relative", margin: "0 0 4px 0" }}>
       <pre className={className} style={{ margin: 0 }}>
-        <code {...props}>{children}</code>
+        <code>{children}</code>
       </pre>
       <CopyButton text={String(children)} />
     </div>
