@@ -16,6 +16,7 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   thinking?: string;
+  thinkingTime?: number; // Time in milliseconds
   sources?: SourceInfo[];
 }
 
@@ -69,7 +70,7 @@ const ChatMessage = memo(({ msg, idx }: { msg: Message; idx: number }) => (
   <div key={idx} className={`chat-message ${msg.role}`}>
     <div className="message-content">
       <Suspense fallback={<span className="message-renderer-fallback">Loading message…</span>}>
-        <MessageRenderer content={msg.content} thinking={msg.thinking} />
+        <MessageRenderer content={msg.content} thinking={msg.thinking} thinkingTime={msg.thinkingTime} />
       </Suspense>
     </div>
     {msg.sources && msg.sources.length > 0 && (
@@ -490,7 +491,10 @@ function App() {
         systemInstructions,
       };
 
+      const startTime = Date.now();
       const response = await invoke<string>("send_to_gemini", params);
+      const endTime = Date.now();
+      const thinkingTime = endTime - startTime;
 
       // Parse response (it now contains both text and sources)
       const result: GeminiResult = JSON.parse(response);
@@ -502,6 +506,7 @@ function App() {
           role: "assistant",
           content: result.text,
           thinking: result.thinking,
+          thinkingTime: result.thinking ? thinkingTime : undefined,
           sources: result.sources,
         },
       ]);

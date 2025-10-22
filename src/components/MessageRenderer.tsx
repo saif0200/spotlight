@@ -36,6 +36,7 @@ const baseRehypePlugins: PluggableList = [rehypeSanitize];
 interface MessageRendererProps {
   content: string;
   thinking?: string;
+  thinkingTime?: number; // Time in milliseconds
 }
 
 interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
@@ -116,7 +117,7 @@ const markdownComponents: Components = {
   code: CodeRenderer,
 };
 
-const MessageRenderer = ({ content, thinking }: MessageRendererProps) => {
+const MessageRenderer = ({ content, thinking, thinkingTime }: MessageRendererProps) => {
   const [mathPlugins, setMathPlugins] = useState<PluggableList | null>(null);
   const [isMathLoading, setIsMathLoading] = useState(false);
   const hasMath = /\$\$|\\\(|\\\[|\\begin\{.*?\}/.test(content);
@@ -162,10 +163,10 @@ const MessageRenderer = ({ content, thinking }: MessageRendererProps) => {
   const rehypePlugins = mathPlugins ? [...baseRehypePlugins, ...mathPlugins] : baseRehypePlugins;
 
   return (
-    <>
+    <div style={{ width: "100%" }}>
       {thinking && (
-        <div style={{ marginBottom: "8px" }}>
-          <ThinkingRenderer content={thinking} />
+        <div style={{ marginBottom: "2px" }}>
+          <ThinkingRenderer content={thinking} thinkingTime={thinkingTime} />
         </div>
       )}
       <ReactMarkdown
@@ -175,7 +176,7 @@ const MessageRenderer = ({ content, thinking }: MessageRendererProps) => {
       >
         {content}
       </ReactMarkdown>
-    </>
+    </div>
   );
 };
 

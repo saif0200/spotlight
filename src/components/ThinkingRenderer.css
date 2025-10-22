@@ -1,0 +1,28 @@
+.thinking-wrapper {
+  will-change: height;
+  transition: height 0.24s ease-out;
+  overflow: hidden;
+}
+
+.thinking-wrapper.closed {
+  pointer-events: none;
+}
+
+.thinking-inner {
+  will-change: opacity, transform;
+}
+
+.thinking-inner.visible {
+  opacity: 0.6;
+  transform: translateY(0);
+  transition: opacity 0.24s ease-out, transform 0.24s ease-out;
+}
+
+.thinking-inner.hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+  pointer-events: none;
+}
+
+

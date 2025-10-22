@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -17,6 +17,7 @@ import css from "react-syntax-highlighter/dist/esm/languages/prism/css";
 import markup from "react-syntax-highlighter/dist/esm/languages/prism/markup";
 import type { PluggableList } from "unified";
 import type { HTMLAttributes, ReactNode } from "react";
+import "./ThinkingRenderer.css";
 
 // Register languages
 SyntaxHighlighter.registerLanguage("tsx", tsx);
@@ -34,6 +35,7 @@ const baseRehypePlugins: PluggableList = [rehypeSanitize];
 
 interface ThinkingRendererProps {
   content: string;
+  thinkingTime?: number; // Time in milliseconds
 }
 
 interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
@@ -114,11 +116,23 @@ const markdownComponents: Components = {
   code: CodeRenderer,
 };
 
-const ThinkingRenderer = ({ content }: ThinkingRendererProps) => {
+const ThinkingRenderer = ({ content, thinkingTime }: ThinkingRendererProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
+  const [shouldRender, setShouldRender] = useState(true);
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [mathPlugins, setMathPlugins] = useState<PluggableList | null>(null);
   const [isMathLoading, setIsMathLoading] = useState(false);
   const hasMath = /\$\$|\\\(|\\\[|\\begin\{.*?\}/.test(content);
+
+  // Measure content height whenever content changes
+  useEffect(() => {
+    if (contentRef.current) {
+      const height = contentRef.current.scrollHeight;
+      setMeasuredHeight(height);
+    }
+  }, [content, isMathLoading, isExpanded]);
 
   // Load math plugins if needed
   if (hasMath && !mathPlugins && !isMathLoading) {
@@ -139,85 +153,110 @@ const ThinkingRenderer = ({ content }: ThinkingRendererProps) => {
   const rehypePlugins = mathPlugins ? [...baseRehypePlugins, ...mathPlugins] : baseRehypePlugins;
 
   const toggleExpanded = () => {
-    setIsExpanded(!isExpanded);
+    if (isExpanded) {
+      // Collapsing: measure current height first
+      if (wrapperRef.current) {
+        const currentHeight = wrapperRef.current.scrollHeight;
+        setMeasuredHeight(currentHeight);
+        
+        // Force a reflow to ensure height is set before animating
+        wrapperRef.current.style.height = `${currentHeight}px`;
+        wrapperRef.current.offsetHeight; // Force reflow
+        
+        // Next frame: trigger collapse animation
+        requestAnimationFrame(() => {
+          setIsExpanded(false);
+        });
+      }
+    } else {
+      // Expanding
+      setShouldRender(true);
+      setIsExpanded(true);
+    }
+  };
+
+  const handleTransitionEnd = () => {
+    if (!isExpanded) {
+      setShouldRender(false);
+    }
+  };
+
+  // Format thinking time
+  const formatThinkingTime = (ms?: number): string => {
+    if (!ms) return "Thought";
+    const seconds = Math.round(ms / 1000);
+    if (seconds < 60) {
+      return `Thought for ${seconds}s`;
+    }
+    const minutes = Math.round(seconds / 60);
+    return `Thought for ${minutes}m`;
   };
 
   return (
-    <div className="thinking-container" style={{
-      marginBottom: "12px",
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-      borderRadius: "12px",
-      overflow: "hidden",
-      background: "rgba(255, 255, 255, 0.05)",
-      backdropFilter: "blur(10px)",
-    }}>
+    <div style={{ marginBottom: "2px" }}>
       <button
-        className="thinking-header"
         onClick={toggleExpanded}
         style={{
-          width: "100%",
-          padding: "10px 14px",
-          backgroundColor: "rgba(255, 255, 255, 0.1)",
+          background: "none",
           border: "none",
-          color: "#fff",
+          color: "inherit",
           cursor: "pointer",
-          display: "flex",
+          padding: 0,
+          font: "inherit",
+          display: "inline-flex",
           alignItems: "center",
+          gap: "4px",
           justifyContent: "space-between",
-          fontSize: "0.85em",
-          fontWeight: "500",
-          transition: "all 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+          width: "auto",
         }}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          🧠 Extended Thinking
-        </span>
+        <span>{formatThinkingTime(thinkingTime)}</span>
         <span style={{
-          transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+          transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
           transition: "transform 0.2s ease",
-          fontSize: "0.8em",
+          display: "inline-block",
         }}>
-          ▼
+          ›
         </span>
       </button>
 
       <div
-        className="thinking-content"
+        ref={wrapperRef}
+        className={`thinking-wrapper ${isExpanded ? 'open' : 'closed'}`}
         style={{
-          maxHeight: isExpanded ? "1000px" : "0",
-          overflow: "hidden",
-          transition: "max-height 0.3s ease-out, opacity 0.3s ease-out",
-          opacity: isExpanded ? 1 : 0,
-          backgroundColor: "rgba(0, 0, 0, 0.05)",
+          height: isExpanded ? (measuredHeight || 'auto') : 0,
+          overflow: 'hidden',
+          pointerEvents: isExpanded ? 'auto' : 'none',
         }}
+        onTransitionEnd={handleTransitionEnd}
       >
-        <div style={{
-          padding: "14px",
-          fontSize: "0.9em",
-          lineHeight: "1.5",
-          color: "rgba(255, 255, 255, 0.9)",
-          border: "none",
-        }}>
-          {isMathLoading ? (
-            <div style={{ textAlign: "center", padding: "20px", color: "rgba(255, 255, 255, 0.7)" }}>
-              Loading math rendering...
-            </div>
-          ) : (
-            <ReactMarkdown
-              remarkPlugins={baseRemarkPlugins}
-              rehypePlugins={rehypePlugins}
-              components={markdownComponents}
-            >
-              {content}
-            </ReactMarkdown>
-          )}
-        </div>
+        {shouldRender && (
+          <div
+            ref={contentRef}
+            className={`thinking-inner ${isExpanded ? 'visible' : 'hiding'}`}
+            style={{
+              marginTop: "4px",
+              marginLeft: "12px",
+              fontSize: "0.9em",
+              lineHeight: "1.5",
+              color: "rgba(255, 255, 255, 0.9)",
+            }}
+          >
+            {isMathLoading ? (
+              <div style={{ color: "rgba(255, 255, 255, 0.7)" }}>
+                Loading math rendering...
+              </div>
+            ) : (
+              <ReactMarkdown
+                remarkPlugins={baseRemarkPlugins}
+                rehypePlugins={rehypePlugins}
+                components={markdownComponents}
+              >
+                {content}
+              </ReactMarkdown>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
