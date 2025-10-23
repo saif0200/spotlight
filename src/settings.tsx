@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { PresetManager } from "./components/PresetManager";
 import "./settings.css";
 
 function SettingsApp() {
@@ -98,15 +99,7 @@ function SettingsApp() {
     const trimmedApiKey = apiKey.trim();
     const trimmedInstructions = systemInstructions.trim();
 
-    // Enhanced validation: both fields being empty is still an error
-    if (!trimmedApiKey && !trimmedInstructions) {
-      console.log("DEBUG: Both fields are empty, showing error");
-      setStatusIntent("error");
-      setStatusMessage("Please enter an API key or system instructions.");
-      return;
-    }
-
-    // Optional: Validate system instructions length to prevent API abuse
+    // Validate system instructions length to prevent API abuse
     if (trimmedInstructions.length > 8000) {
       setStatusIntent("error");
       setStatusMessage("System instructions are too long. Please keep them under 8000 characters.");
@@ -119,25 +112,29 @@ function SettingsApp() {
     try {
       const savePromises = [];
 
+      // Handle API key
       if (trimmedApiKey) {
         console.log("DEBUG: Saving API key");
         savePromises.push(invoke("set_api_key", { apiKey: trimmedApiKey }));
+      } else {
+        console.log("DEBUG: Clearing API key");
+        savePromises.push(invoke("clear_api_key"));
       }
 
+      // Handle system instructions
       if (trimmedInstructions) {
         console.log("DEBUG: Saving system instructions");
         savePromises.push(invoke("set_system_instructions", { instructions: trimmedInstructions }));
+      } else {
+        console.log("DEBUG: Clearing system instructions");
+        savePromises.push(invoke("clear_system_instructions"));
       }
 
       await Promise.all(savePromises);
       console.log("DEBUG: Settings saved successfully");
 
-      const messages = [];
-      if (trimmedApiKey) messages.push("API key");
-      if (trimmedInstructions) messages.push("system instructions");
-
       setStatusIntent("success");
-      setStatusMessage(`${messages.join(" and ")} saved.`);
+      setStatusMessage("Settings saved successfully.");
     } catch (error) {
       console.error("Failed to save settings:", error);
       console.error("Error details:", JSON.stringify(error, null, 2));
@@ -257,7 +254,7 @@ function SettingsApp() {
     [handleClose],
   );
 
-  const disableSave = isBusy || (apiKey.trim().length === 0 && systemInstructions.trim().length === 0);
+  const disableSave = isBusy;
 
   return (
     <div className={`settings-window ${isClosing ? "closing" : ""}`} onKeyDown={handleKeyDown}>
@@ -325,6 +322,16 @@ function SettingsApp() {
             </span>
           </div>
         </div>
+
+        {/* Preset Manager Section */}
+        <div className="settings-section">
+          <PresetManager
+            currentInstructions={systemInstructions}
+            onLoadPreset={(instructions) => setSystemInstructions(instructions)}
+            disabled={isBusy}
+          />
+        </div>
+
         {statusMessage && (
           <div className={`status-message ${statusIntent}`}>
             {statusMessage}
@@ -334,7 +341,7 @@ function SettingsApp() {
           <button
             type="submit"
             disabled={disableSave}
-            title={disableSave ? "Please enter an API key or system instructions" : "Save settings"}
+            title="Save settings"
           >
             Save
           </button>

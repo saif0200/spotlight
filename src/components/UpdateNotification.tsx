@@ -10,10 +10,9 @@ interface UpdateInfo {
 
 interface UpdateNotificationProps {
   onUpdateAvailable: (update: { info: UpdateInfo; install: () => Promise<void> }) => void;
-  onUpdateDismissed: () => void;
 }
 
-export function UpdateNotification({ onUpdateAvailable, onUpdateDismissed }: UpdateNotificationProps) {
+export function UpdateNotification({ onUpdateAvailable }: UpdateNotificationProps) {
   const [isChecking, setIsChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
 

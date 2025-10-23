@@ -47,6 +47,7 @@ fn get_settings_store_path(app: &AppHandle) -> String {
 }
 const SETTINGS_STORE_KEY: &str = "GEMINI_API_KEY";
 const SYSTEM_INSTRUCTIONS_KEY: &str = "SYSTEM_INSTRUCTIONS";
+const SYSTEM_INSTRUCTIONS_PRESETS_KEY: &str = "SYSTEM_INSTRUCTIONS_PRESETS";
 const API_KEY_UPDATED_EVENT: &str = "api-key-updated";
 const SYSTEM_INSTRUCTIONS_UPDATED_EVENT: &str = "system-instructions-updated";
 
@@ -60,6 +61,13 @@ struct ApiKeyPayload {
 #[serde(rename_all = "camelCase")]
 struct SystemInstructionsPayload {
     system_instructions: Option<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct InstructionPreset {
+    id: String,
+    name: String,
+    instructions: String,
 }
 
 #[derive(Clone)]
@@ -612,7 +620,7 @@ fn open_settings_window(app: &AppHandle) -> tauri::Result<()> {
         WebviewUrl::App("settings.html".into()),
     )
     .title("Spotlight Settings")
-    .inner_size(520.0, 520.0)
+    .inner_size(520.0, 700.0)
     .resizable(false)
     .visible(true)
     .decorations(false)
@@ -756,6 +764,64 @@ fn clear_system_instructions(app: AppHandle) -> Result<(), String> {
     println!("DEBUG: Store saved successfully to disk");
     emit_system_instructions_update(&app, None);
     println!("DEBUG: System instructions clear event emitted");
+    Ok(())
+}
+
+#[tauri::command]
+fn get_instruction_presets(app: AppHandle) -> Result<Vec<InstructionPreset>, String> {
+    println!("DEBUG: Getting instruction presets from store...");
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    let presets = store
+        .get(SYSTEM_INSTRUCTIONS_PRESETS_KEY)
+        .and_then(|json| serde_json::from_value::<Vec<InstructionPreset>>(json.clone()).ok())
+        .unwrap_or_default();
+    println!("DEBUG: Retrieved {} presets", presets.len());
+    Ok(presets)
+}
+
+#[tauri::command]
+fn save_instruction_preset(app: AppHandle, preset: InstructionPreset) -> Result<(), String> {
+    println!("DEBUG: Saving instruction preset: {}", preset.name);
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    
+    let mut presets = store
+        .get(SYSTEM_INSTRUCTIONS_PRESETS_KEY)
+        .and_then(|json| serde_json::from_value::<Vec<InstructionPreset>>(json.clone()).ok())
+        .unwrap_or_default();
+    
+    // Remove existing preset with same id if it exists
+    presets.retain(|p| p.id != preset.id);
+    
+    // Add new preset
+    presets.push(preset);
+    
+    let presets_json = serde_json::to_value(&presets)
+        .map_err(|e| format!("Failed to serialize presets: {}", e))?;
+    
+    store.set(SYSTEM_INSTRUCTIONS_PRESETS_KEY, presets_json);
+    store.save().map_err(|e| format!("Failed to save store: {}", e))?;
+    println!("DEBUG: Preset saved successfully");
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_instruction_preset(app: AppHandle, preset_id: String) -> Result<(), String> {
+    println!("DEBUG: Deleting instruction preset: {}", preset_id);
+    let store = settings_store(&app).map_err(|e| format!("Failed to create settings store: {}", e))?;
+    
+    let mut presets = store
+        .get(SYSTEM_INSTRUCTIONS_PRESETS_KEY)
+        .and_then(|json| serde_json::from_value::<Vec<InstructionPreset>>(json.clone()).ok())
+        .unwrap_or_default();
+    
+    presets.retain(|p| p.id != preset_id);
+    
+    let presets_json = serde_json::to_value(&presets)
+        .map_err(|e| format!("Failed to serialize presets: {}", e))?;
+    
+    store.set(SYSTEM_INSTRUCTIONS_PRESETS_KEY, presets_json);
+    store.save().map_err(|e| format!("Failed to save store: {}", e))?;
+    println!("DEBUG: Preset deleted successfully");
     Ok(())
 }
 
@@ -936,7 +1002,10 @@ pub fn run() {
             clear_api_key,
             get_system_instructions,
             set_system_instructions,
-            clear_system_instructions
+            clear_system_instructions,
+            get_instruction_presets,
+            save_instruction_preset,
+            delete_instruction_preset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
