@@ -49,9 +49,36 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
   const language = match ? match[1] : "";
   const code = String(children).replace(/\s+$/, "").trim();
 
-  if (!inline && language) {
+  // Detect if this should be inline based on content characteristics
+  // Short snippets without language should be inline (lowered threshold to 12 chars)
+  const content = String(children);
+  const isShortSingleLine = !content.includes('\n') && content.length < 12 && !language;
+
+  // Handle inline code first
+  if (inline || isShortSingleLine) {
+    return (
+      <code className={className} {...props}>
+        {children}
+      </code>
+    );
+  }
+
+  if (language) {
     return (
       <div style={{ position: "relative", margin: "0 0 4px 0" }}>
+        <div style={{
+          position: "absolute",
+          top: "8px",
+          left: "12px",
+          fontSize: "0.75em",
+          fontWeight: "600",
+          color: "rgba(255, 255, 255, 0.6)",
+          zIndex: 10,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}>
+          {language}
+        </div>
         <SyntaxHighlighter
           style={oneDark}
           language={language}
@@ -71,35 +98,47 @@ const CodeRenderer = ({ inline, className, children, ...props }: CodeBlockProps)
     );
   }
 
-  if (!inline) {
-    return (
-      <div style={{ position: "relative", margin: "0 0 4px 0" }}>
-        <pre className={className} style={{ margin: 0, backgroundColor: "rgba(0, 0, 0, 0.2)" }}>
-          <code {...props}>{children}</code>
-        </pre>
-        <CopyButton text={String(children)} />
-      </div>
-    );
-  }
-
+  // Plain code blocks (no language label)
   return (
-    <code className={className} {...props}>
-      {children}
-    </code>
+    <div style={{ position: "relative", margin: "0 0 4px 0" }}>
+      <pre className={className} style={{ margin: 0, backgroundColor: "rgba(0, 0, 0, 0.2)", padding: "12px" }}>
+        <code {...props}>{children}</code>
+      </pre>
+      <CopyButton text={String(children)} />
+    </div>
   );
 };
 
 const markdownComponents: Components = {
   a: ({ children, href, ...props }: any) => (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: "#64b5f6", textDecoration: "underline" }}
-      {...props}
-    >
-      {children}
-    </a>
+    href ? (
+      <span style={{ display: "inline" }}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#64b5f6", textDecoration: "underline" }}
+          {...props}
+        >
+          {children}
+        </a>
+        <span 
+          style={{ 
+            display: "inline",
+            marginLeft: "2px",
+            fontSize: "0.75em",
+            verticalAlign: "super",
+            textDecoration: "none",
+            color: "#64b5f6"
+          }}
+          aria-label="external link"
+        >
+          ↗
+        </span>
+      </span>
+    ) : (
+      <a style={{ color: "#64b5f6", textDecoration: "underline" }} {...props}>{children}</a>
+    )
   ),
   table: ({ children, ...props }: any) => (
     <div style={{ overflowX: "auto", margin: "8px 0" }}>
@@ -114,11 +153,53 @@ const markdownComponents: Components = {
     </div>
   ),
   code: CodeRenderer,
+  // Footnotes support (GFM)
+  sup: ({ children, ...props }: any) => (
+    <sup style={{ fontSize: "0.8em", verticalAlign: "super" }} {...props}>
+      {children}
+    </sup>
+  ),
+  section: ({ children, ...props }: any) => {
+    // Footnote section has data-footnotes="true"
+    if (props["data-footnotes"]) {
+      return (
+        <section
+          style={{
+            borderTop: "1px solid rgba(255, 255, 255, 0.2)",
+            marginTop: "24px",
+            paddingTop: "16px",
+            fontSize: "0.9em",
+            color: "rgba(255, 255, 255, 0.8)",
+          }}
+          {...props}
+        >
+          {children}
+        </section>
+      );
+    }
+    return <section {...props}>{children}</section>;
+  },
+  // Definition list support (GFM)
+  dl: ({ children, ...props }: any) => (
+    <dl style={{ marginLeft: "20px", marginBottom: "12px" }} {...props}>
+      {children}
+    </dl>
+  ),
+  dt: ({ children, ...props }: any) => (
+    <dt style={{ fontWeight: "600", marginTop: "8px" }} {...props}>
+      {children}
+    </dt>
+  ),
+  dd: ({ children, ...props }: any) => (
+    <dd style={{ marginLeft: "20px", marginBottom: "8px", color: "rgba(255, 255, 255, 0.9)" }} {...props}>
+      {children}
+    </dd>
+  ),
 };
 
 const ThinkingRenderer = ({ content, thinkingTime }: ThinkingRendererProps) => {
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [shouldRender, setShouldRender] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [shouldRender, setShouldRender] = useState(false);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -128,7 +209,7 @@ const ThinkingRenderer = ({ content, thinkingTime }: ThinkingRendererProps) => {
 
   // Measure content height whenever content changes
   useEffect(() => {
-    if (contentRef.current) {
+    if (contentRef.current && isExpanded) {
       const height = contentRef.current.scrollHeight;
       setMeasuredHeight(height);
     }
@@ -236,10 +317,8 @@ const ThinkingRenderer = ({ content, thinkingTime }: ThinkingRendererProps) => {
             className={`thinking-inner ${isExpanded ? 'visible' : 'hiding'}`}
             style={{
               marginTop: "4px",
-              marginLeft: "12px",
               fontSize: "0.9em",
               lineHeight: "1.5",
-              color: "rgba(255, 255, 255, 0.9)",
             }}
           >
             {isMathLoading ? (

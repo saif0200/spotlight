@@ -46,21 +46,18 @@ interface CodeBlockProps extends HTMLAttributes<HTMLElement> {
   node?: any;
 }
 
-const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlockProps) => {
+const CodeRenderer = ({ inline, className, children }: CodeBlockProps) => {
   const match = /language-(\w+)/.exec(className || "");
   const language = match ? match[1] : "";
   const code = String(children).replace(/\s+$/, "").trim();
 
-  // Debug: log the props to understand what react-markdown is sending
-  console.log('CodeRenderer props:', { inline, className, children: String(children), props });
-
-  // Additional detection: if there are no newlines and it's short, treat as inline
+  // Detect if this should be inline based on content characteristics
+  // Short snippets without language should be inline (lowered threshold to 12 chars)
   const content = String(children);
-  const isProbablyInline = !content.includes('\n') && content.length < 100 && !language;
+  const isShortSingleLine = !content.includes('\n') && content.length < 12 && !language;
 
   // Handle inline code first - this should always render inline
-  if (inline || isProbablyInline) {
-    console.log('Rendering as inline code', { inline, isProbablyInline, content: content.slice(0, 20) });
+  if (inline || isShortSingleLine) {
     return (
       <code className={className}>
         {children}
@@ -70,18 +67,32 @@ const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlock
 
   // Handle code blocks with syntax highlighting
   if (language) {
-    console.log('Rendering as syntax-highlighted code block');
     return (
-      <div style={{ position: "relative", margin: "0 0 4px 0" }}>
+      <div style={{ position: "relative", margin: "0 0 4px 0", borderRadius: "8px", overflow: "hidden" }}>
+        <div style={{
+          position: "absolute",
+          top: "8px",
+          left: "12px",
+          fontSize: "0.75em",
+          fontWeight: "600",
+          color: "rgba(255, 255, 255, 0.6)",
+          zIndex: 10,
+          textTransform: "uppercase",
+          letterSpacing: "0.5px",
+        }}>
+          {language}
+        </div>
         <SyntaxHighlighter
           style={oneDark}
           language={language}
           PreTag="pre"
           customStyle={{
             margin: 0,
-            borderRadius: "8px",
+            borderRadius: "0px",
             fontSize: "0.9em",
             padding: "40px 12px 12px 12px",
+            backgroundColor: "rgba(0, 0, 0, 0.4)",
+            border: "none",
           }}
         >
           {code}
@@ -91,11 +102,32 @@ const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlock
     );
   }
 
-  // Handle plain code blocks
-  console.log('Rendering as plain code block');
+  // Handle plain text code blocks (no language label)
   return (
-    <div style={{ position: "relative", margin: "0 0 4px 0" }}>
-      <pre className={className} style={{ margin: 0, paddingTop: "40px" }}>
+    <div style={{ position: "relative", margin: "0 0 4px 0", borderRadius: "8px", overflow: "hidden" }}>
+      <div style={{
+        position: "absolute",
+        top: "8px",
+        left: "12px",
+        fontSize: "0.75em",
+        fontWeight: "600",
+        color: "rgba(255, 255, 255, 0.6)",
+        zIndex: 10,
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+      }}>
+        Text
+      </div>
+      <pre style={{
+        margin: 0,
+        borderRadius: "0px",
+        fontSize: "0.9em",
+        padding: "40px 12px 12px 12px",
+        backgroundColor: "rgba(0, 0, 0, 0.4)",
+        color: "#abb2bf",
+        overflowX: "auto",
+        border: "none",
+      }}>
         <code>{children}</code>
       </pre>
       <CopyButton text={String(children)} />
@@ -105,9 +137,33 @@ const CodeRenderer = ({ inline, className, children, node, ...props }: CodeBlock
 
 const markdownComponents: Components = {
   a: ({ children, href, ...props }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" {...props}>
-      {children}
-    </a>
+    href ? (
+      <span style={{ display: "inline" }}>
+        <a 
+          href={href} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          style={{ textDecoration: "underline" }}
+          {...props}
+        >
+          {children}
+        </a>
+        <span 
+          style={{ 
+            display: "inline",
+            marginLeft: "2px",
+            fontSize: "0.75em",
+            verticalAlign: "super",
+            textDecoration: "none"
+          }}
+          aria-label="external link"
+        >
+          ↗
+        </span>
+      </span>
+    ) : (
+      <a {...props}>{children}</a>
+    )
   ),
   table: ({ children, ...props }) => (
     <div className="markdown-table-wrapper">
@@ -115,6 +171,48 @@ const markdownComponents: Components = {
     </div>
   ),
   code: CodeRenderer,
+  // Footnotes support (GFM)
+  sup: ({ children, ...props }: any) => (
+    <sup style={{ fontSize: "0.8em", verticalAlign: "super" }} {...props}>
+      {children}
+    </sup>
+  ),
+  section: ({ children, ...props }: any) => {
+    // Footnote section has data-footnotes="true"
+    if (props["data-footnotes"]) {
+      return (
+        <section
+          style={{
+            borderTop: "1px solid rgba(255, 255, 255, 0.2)",
+            marginTop: "24px",
+            paddingTop: "16px",
+            fontSize: "0.9em",
+            color: "rgba(255, 255, 255, 0.8)",
+          }}
+          {...props}
+        >
+          {children}
+        </section>
+      );
+    }
+    return <section {...props}>{children}</section>;
+  },
+  // Definition list support (GFM)
+  dl: ({ children, ...props }: any) => (
+    <dl style={{ marginLeft: "20px", marginBottom: "12px" }} {...props}>
+      {children}
+    </dl>
+  ),
+  dt: ({ children, ...props }: any) => (
+    <dt style={{ fontWeight: "600", marginTop: "8px" }} {...props}>
+      {children}
+    </dt>
+  ),
+  dd: ({ children, ...props }: any) => (
+    <dd style={{ marginLeft: "20px", marginBottom: "8px", color: "rgba(255, 255, 255, 0.9)" }} {...props}>
+      {children}
+    </dd>
+  ),
 };
 
 const MessageRenderer = ({ content, thinking, thinkingTime }: MessageRendererProps) => {

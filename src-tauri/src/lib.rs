@@ -461,6 +461,11 @@ async fn send_to_gemini(
         generation_config,
     };
 
+    // Log the raw request
+    if let Ok(request_json) = serde_json::to_string(&request) {
+        println!("DEBUG: Raw Gemini Request: {}", request_json);
+    }
+
     let client = reqwest::Client::new();
     let url = format!("{}?key={}", GEMINI_API_ENDPOINT, api_key);
 
@@ -473,12 +478,14 @@ async fn send_to_gemini(
 
     if !response.status().is_success() {
         let error_text = response.text().await.unwrap_or_default();
+        println!("DEBUG: API Error Response: {}", error_text);
         return Err(format!("API error: {}", error_text));
     }
 
-    let gemini_response: GeminiResponse = response
-        .json()
-        .await
+    let response_text = response.text().await.map_err(|e| format!("Failed to read response body: {}", e))?;
+    println!("DEBUG: Raw Gemini Response: {}", response_text);
+
+    let gemini_response: GeminiResponse = serde_json::from_str(&response_text)
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
     // Extract content and separate thinking from main response
