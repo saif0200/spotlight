@@ -1,0 +1,65 @@
+name: Build Windows (Tauri)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    name: Build Windows bundle on windows-latest
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Ensure tauri CLI (optional)
+        run: |
+          npm run -s tauri -- --version || npm i -g @tauri-apps/cli
+
+      - name: Build Tauri (Windows release)
+        # uses the package.json script `tauri:build-windows` which runs: tauri build --target x86_64-pc-windows-msvc
+        run: npm run tauri:build-windows
+
+      - name: Upload built bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotlight-windows-bundles
+          path: |
+            src-tauri/target/release/bundle/**
