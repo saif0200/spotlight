@@ -52,9 +52,8 @@ const CodeRenderer = ({ inline, className, children }: CodeBlockProps) => {
   const code = String(children).replace(/\s+$/, "").trim();
 
   // Detect if this should be inline based on content characteristics
-  // Short snippets without language should be inline (lowered threshold to 12 chars)
   const content = String(children);
-  const isShortSingleLine = !content.includes('\n') && content.length < 12 && !language;
+  const isShortSingleLine = !content.includes('\n') && !language;
 
   // Handle inline code first - this should always render inline
   if (inline || isShortSingleLine) {
@@ -83,7 +82,17 @@ const CodeRenderer = ({ inline, className, children }: CodeBlockProps) => {
           {language}
         </div>
         <SyntaxHighlighter
-          style={oneDark}
+          style={{
+            ...oneDark,
+            'pre[class*="language-"]': {
+              ...oneDark['pre[class*="language-"]'],
+              background: 'transparent',
+            },
+            'code[class*="language-"]': {
+              ...oneDark['code[class*="language-"]'],
+              background: 'transparent',
+            },
+          }}
           language={language}
           PreTag="pre"
           customStyle={{
