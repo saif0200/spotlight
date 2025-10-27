@@ -65,9 +65,16 @@ jobs:
         # uses the package.json script `tauri:build-windows` which runs: tauri build --target x86_64-pc-windows-msvc
         run: npm run tauri:build-windows
 
-      - name: Upload built bundles
+      - name: Upload EXE artifact only
         uses: actions/upload-artifact@v4
         with:
-          name: spotlight-windows-bundles
+          name: spotlight-windows-exe
+          # Upload only .exe files (packed installer and/or built app exe)
           path: |
-            src-tauri/target/release/bundle/**
+            src-tauri/target/**/release/**/*.exe
+
+      - name: List build output (debug)
+        # Show where artifacts were written so it's obvious to the workflow logs
+        run: |
+          echo "Listing src-tauri/target contents"
+          dir src-tauri/target -Recurse
