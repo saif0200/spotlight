@@ -17,7 +17,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          # Vite requires Node >= 20.19 or 22.12+, use Node 22 LTS
+          node-version: '22'
 
       - name: Cache node modules
         uses: actions/cache@v4
@@ -52,6 +53,13 @@ jobs:
       - name: Ensure tauri CLI (optional)
         run: |
           npm run -s tauri -- --version || npm i -g @tauri-apps/cli
+
+      - name: Disable updater artifacts in CI (avoid missing signing key)
+        # The repo has an updater public key and createUpdaterArtifacts enabled which requires a
+        # private signing key present during build. In CI we typically don't sign installers, so
+        # temporarily disable creating updater artifacts by patching src-tauri/tauri.conf.json.
+        run: |
+          node -e "const fs=require('fs');const p='src-tauri/tauri.conf.json';const j=JSON.parse(fs.readFileSync(p));if(j.bundle){j.bundle.createUpdaterArtifacts=false;}fs.writeFileSync(p,JSON.stringify(j,null,2));console.log('patched',p);"
 
       - name: Build Tauri (Windows release)
         # uses the package.json script `tauri:build-windows` which runs: tauri build --target x86_64-pc-windows-msvc
